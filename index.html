@@ -11,12 +11,13 @@
             navigator.serviceWorker.register('sw.js');
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"
+        crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin="anonymous"></script>
     <style>
         :root {
             --bg: #000000;
@@ -28,20 +29,18 @@
             --hybrid: #00d4ff;
         }
 
-        /* Prevenir scroll horizontal indeseado */
-        body {
-            overflow-x: hidden;
-            width: 100vw;
-        }
-
+        /* Base: sin bordes extra que causen línea verde */
         body,
         html {
             margin: 0;
             padding: 0;
             height: 100%;
             background: var(--bg);
+            background-color: #000000;
             color: var(--text);
             font-family: system-ui, sans-serif;
+            overflow-x: hidden;
+            width: 100vw;
         }
 
         /* Zona de arrastrar y soltar */
