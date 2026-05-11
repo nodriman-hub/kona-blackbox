@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kona BlackBox - Centro Forense</title>
+    <meta name="theme-color" content="#000000">
     <link rel="manifest" href="manifest.json">
     <script>
         if ('serviceWorker' in navigator) {
@@ -1459,34 +1460,42 @@
         document.getElementById('btn-sync-cloud-main').addEventListener('click', descargarDatosNube);
 
         async function descargarDatosNube(event) {
-            const btn = event ? event.currentTarget : document.getElementById('btn-sync-cloud-main');
-            const textoOriginal = btn.innerHTML;
-            btn.innerHTML = '⏳ Descargando...';
-            btn.disabled = true;
+            // Identificamos qué botón pulsaste para ponerle el icono de carga
+            const btnSplash = document.getElementById('btn-sync-splash');
+            const btnMain = document.getElementById('btn-sync-cloud-main');
+            if (btnSplash) btnSplash.innerHTML = '⏳ CONECTANDO...';
+            if (btnMain) btnMain.innerHTML = '⏳ Descargando...';
 
             try {
-                // Consultamos todos los viajes. 
-                // En un futuro, si tienes miles, aquí podríamos poner un filtro de fecha (.gte('created_at', fecha))
-                const { data, error } = await supabaseClient
-                    .from('trips') // <-- CAMBIA ESTO por el nombre de tu tabla
+                // ⚠️ ¡IMPORTANTE! Si tu tabla NO se llama 'trips', cámbialo aquí abajo:
+                const nombreTabla = 'trips';
+
+                const { data, error, status } = await supabaseClient
+                    .from(nombreTabla)
                     .select('*')
                     .order('created_at', { ascending: false });
 
-                if (error) throw error;
+                // Si Supabase nos escupe un error, lo atrapamos
+                if (error) {
+                    throw new Error(`Código ${status}: ${error.message}`);
+                }
 
+                // Si hay datos, encendemos el Dashboard
                 if (data && data.length > 0) {
                     procesarDatosNube(data);
                 } else {
-                    alert("No se encontraron viajes en la nube.");
+                    // Si conecta bien pero no devuelve datos, es culpa del RLS
+                    alert(`✅ Conexión exitosa a Supabase.\n\n❌ ERROR: La tabla '${nombreTabla}' está vacía o el escudo de seguridad (RLS) está activado y bloquea la lectura.`);
                 }
             } catch (error) {
-                // Forzamos la extracción del mensaje real, sea del tipo que sea
-                const mensajeReal = error.message || error.error_description || error.details || JSON.stringify(error);
-                console.error("Fallo crítico de Supabase:", mensajeReal);
-                alert("Error de enlace: " + mensajeReal);
+                // Mostramos el error exacto en pantalla
+                const msj = error.message || "Error desconocido";
+                console.error("DIAGNÓSTICO:", msj);
+                alert(`🚨 RECHAZO DE SUPABASE:\n\n${msj}\n\nRevisa si el nombre de la tabla es correcto.`);
             } finally {
-                btn.innerHTML = textoOriginal;
-                btn.disabled = false;
+                // Devolvemos los botones a su estado original
+                if (btnSplash) btnSplash.innerHTML = '[ INICIAR ENLACE SATELITAL ]';
+                if (btnMain) btnMain.innerHTML = '☁️ SINCRONIZAR CON LA NUBE';
             }
         }
 
