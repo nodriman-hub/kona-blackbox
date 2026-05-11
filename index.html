@@ -28,6 +28,12 @@
             --hybrid: #00d4ff;
         }
 
+        /* Prevenir scroll horizontal indeseado */
+        body {
+            overflow-x: hidden;
+            width: 100vw;
+        }
+
         body,
         html {
             margin: 0;
@@ -367,18 +373,21 @@
             z-index: 0;
         }
 
-        /* El contenedor se adapta al tamaño de la pantalla usando 'vmin' (80% del lado más corto) */
+        /* Ajustamos el contenedor para elevarlo */
         .hud-ring-container {
             position: relative;
-            width: 80vmin;
-            max-width: 500px;
-            /* Tamaño máximo para que no sea gigantesco en PC */
-            height: 80vmin;
-            max-height: 500px;
+            width: 70vmin;
+            /* Un poco más pequeño para que no desborde en móvil */
+            max-width: 400px;
+            height: 70vmin;
+            max-height: 400px;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 50px;
+            /* Separación de la leyenda */
+            transform: translateY(-10vh);
+            /* EL TRUCO: Lo movemos hacia arriba para no tapar el Kona */
             z-index: 10;
         }
 
@@ -487,17 +496,17 @@
 
             .side-panel {
                 width: 100%;
-                /* Ocupa todo el ancho */
                 border-right: none;
                 border-bottom: 2px solid #222;
                 box-sizing: border-box;
-                max-height: 400px;
-                /* Evita que la lista de viajes sea eterna */
+                /* Limitamos la altura de la lista y permitimos scroll interno */
+                max-height: 45vh;
+                overflow-y: auto;
             }
 
             .main-panel {
-                height: 800px;
-                /* Dale un tamaño fijo alto al mapa y la gráfica para poder navegar */
+                /* El mapa y gráfica toman el resto de la pantalla, no un alto fijo gigante */
+                min-height: 60vh;
                 display: flex;
                 flex-direction: column;
             }
@@ -835,13 +844,7 @@
                 header.innerHTML = `<span id="${headerId}">📍 Calculando ruta... (${group.trips.length} viajes)</span> <span>▼</span>`;
                 header.onclick = () => groupEl.classList.toggle('active');
 
-                // Llamada asíncrona para bautizar la ruta
-                setTimeout(async () => {
-                    const origen = await obtenerNombreCiudad(group.baseStart.lat, group.baseStart.lon);
-                    const destino = await obtenerNombreCiudad(group.baseEnd.lat, group.baseEnd.lon);
-                    const tituloFinal = origen === destino ? `Ruta local por ${origen}` : `${origen} ➔ ${destino}`;
-                    document.getElementById(headerId).innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
-                }, i * 1200); // Pausamos 1.2s entre peticiones para no saturar la API gratuita
+                // La llamada a la API de Nominatim se hará de forma secuencial al final
 
                 // Contenedor de viajes del grupo
                 const content = document.createElement('div');
@@ -880,6 +883,29 @@
             });
 
             container.appendChild(listDiv);
+
+            // Bautizar las rutas secuencialmente para no enfadar a la API
+            bautizarRutasOrdenadas(grupos);
+        }
+
+        // Nueva función de cola
+        async function bautizarRutasOrdenadas(grupos) {
+            for (let i = 0; i < grupos.length; i++) {
+                const group = grupos[i];
+                const headerSpan = document.getElementById(`route-title-${i}`);
+                if (!headerSpan) continue;
+
+                const origen = await obtenerNombreCiudad(group.baseStart.lat, group.baseStart.lon);
+                // Pausa de 1 segundo obligatoria entre origen y destino para la API
+                await new Promise(r => setTimeout(r, 1000));
+                const destino = await obtenerNombreCiudad(group.baseEnd.lat, group.baseEnd.lon);
+
+                const tituloFinal = origen === destino ? `Ruta por ${origen}` : `${origen} ➔ ${destino}`;
+                headerSpan.innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
+
+                // Pausa antes del siguiente grupo
+                await new Promise(r => setTimeout(r, 1000));
+            }
         }
 
         function verDetalleViaje(trip) {
@@ -1381,16 +1407,24 @@
             setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 500);
         });
 
-        // --- GEOTAG AUTOMÁTICO (OpenStreetMap API) ---
+        // --- GEOTAG AUTOMÁTICO (Con Caché y Protección Anti-Bloqueo) ---
+        const cityCache = {};
+
         async function obtenerNombreCiudad(lat, lon) {
+            // Redondeamos a 2 decimales para agrupar coordenadas muy cercanas (aprox 1km) y usar la caché
+            const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+            if (cityCache[key]) return cityCache[key];
+
             try {
-                // Hacemos una petición a la API gratuita de Nominatim
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                if (!res.ok) return "Zona Desconocida";
                 const data = await res.json();
-                // Extraemos la ciudad, pueblo, villa o municipio
-                return data.address.city || data.address.town || data.address.village || data.address.municipality || "Desconocido";
+
+                const nombre = data.address.city || data.address.town || data.address.village || data.address.municipality || "Ruta Local";
+                cityCache[key] = nombre; // Guardamos en memoria
+                return nombre;
             } catch (e) {
-                return "Desconocido";
+                return "Zona Desconocida";
             }
         }
     </script>
