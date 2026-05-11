@@ -333,17 +333,20 @@
             font-weight: bold;
         }
 
-        /* --- NUEVO SPLASH SCREEN HOLOGRÁFICO --- */
+        /* --- SPLASH SCREEN HOLOGRÁFICO (SUAVIZADO Y AUTO-ESCALADO) --- */
         #splash-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            /* Tu imagen de fondo */
+            background-color: #000000;
+            /* Fondo base negro absoluto */
             background-image: url('Gemini_Generated_Image_1t6ugn1t6ugn1t6u.png');
-            background-size: cover;
-            background-position: center;
+            /* 'contain' obliga a que la imagen entera entre en pantalla sin recortarse */
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center center;
             z-index: 2000;
             display: flex;
             flex-direction: column;
@@ -352,7 +355,7 @@
             transition: opacity 0.5s ease;
         }
 
-        /* Sutil oscurecimiento para no tapar el coche, pero que resalte el neón */
+        /* Viñeteado oscuro: funde los bordes cuadrados de la imagen con el fondo negro del panel */
         #splash-screen::before {
             content: '';
             position: absolute;
@@ -360,22 +363,26 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
-            z-index: -1;
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.1) 40%, rgba(0, 0, 0, 0.95) 80%);
+            z-index: 0;
         }
 
-        /* El gran anillo contenedor */
+        /* El contenedor se adapta al tamaño de la pantalla usando 'vmin' (80% del lado más corto) */
         .hud-ring-container {
             position: relative;
-            width: 350px;
-            height: 350px;
+            width: 80vmin;
+            max-width: 500px;
+            /* Tamaño máximo para que no sea gigantesco en PC */
+            height: 80vmin;
+            max-height: 500px;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            z-index: 10;
         }
 
-        /* El gradiente circular basado en tus datos (65% Verde, 30% Azul, 5% Morado) */
+        /* El Aura de Energía (Anillo difuminado) */
         .hud-ring {
             position: absolute;
             top: 0;
@@ -383,23 +390,28 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            /* Gradiente cónico con los colores OLED */
+            /* Mantenemos el gradiente cónico para los colores... */
             background: conic-gradient(var(--ev) 0% 65%,
                     var(--hybrid) 65% 95%,
                     var(--regen) 95% 100%);
-            /* El truco mágico: una máscara para agujerear el centro y que sea un anillo */
-            -webkit-mask-image: radial-gradient(circle, transparent 55%, black 56%);
-            mask-image: radial-gradient(circle, transparent 55%, black 56%);
-            /* Un ligero resplandor exterior */
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+            /* ...pero aquí aplicamos el difuminado extremo: */
+            opacity: 0.35;
+            /* Lo hacemos muy transparente */
+            filter: blur(15px);
+            /* Desenfocamos los colores para que se mezclen y brillen */
+
+            /* La máscara ahora tiene un degradado suave, no un corte duro */
+            -webkit-mask-image: radial-gradient(circle, transparent 40%, black 70%, transparent 100%);
+            mask-image: radial-gradient(circle, transparent 40%, black 70%, transparent 100%);
         }
 
-        /* Datos en el centro del anillo */
+        /* Datos en el centro del aura */
         .hud-data-center {
             position: relative;
-            z-index: 10;
+            z-index: 20;
             text-align: center;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 1);
+            /* Sombra dura para que el texto sea legible sobre el brillo */
         }
 
         .hud-time {
@@ -423,17 +435,19 @@
             font-weight: bold;
             font-size: 1.2rem;
             margin-top: 15px;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
         }
 
         /* Leyenda inferior flotante */
         .hud-legend {
             display: flex;
             gap: 20px;
-            background: rgba(10, 10, 12, 0.6);
-            backdrop-filter: blur(8px);
+            background: rgba(10, 10, 12, 0.4);
+            backdrop-filter: blur(10px);
             padding: 15px 25px;
             border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 10;
         }
 
         .hud-legend-item {
