@@ -333,13 +333,14 @@
             font-weight: bold;
         }
 
-        /* --- SPLASH SCREEN & GRÁFICO CIRCULAR --- */
+        /* --- NUEVO SPLASH SCREEN HOLOGRÁFICO --- */
         #splash-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            /* Tu imagen de fondo */
             background-image: url('Gemini_Generated_Image_1t6ugn1t6ugn1t6u.png');
             background-size: cover;
             background-position: center;
@@ -351,7 +352,7 @@
             transition: opacity 0.5s ease;
         }
 
-        /* Oscurecer un poco el fondo para que el texto resalte, pero permitiendo ver el coche */
+        /* Sutil oscurecimiento para no tapar el coche, pero que resalte el neón */
         #splash-screen::before {
             content: '';
             position: absolute;
@@ -359,75 +360,95 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.3);
+            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%);
             z-index: -1;
         }
 
-        .splash-card {
+        /* El gran anillo contenedor */
+        .hud-ring-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        /* El gradiente circular basado en tus datos (65% Verde, 30% Azul, 5% Morado) */
+        .hud-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            padding: 20px;
-        }
-
-        .energy-distribution {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 40px;
-            margin-top: 30px;
-        }
-
-        /* Gráfico de Anillo CSS puro GIGANTE */
-        .donut-chart {
-            width: 450px;
-            height: 450px;
+            height: 100%;
             border-radius: 50%;
-            background: conic-gradient(var(--ev) 0% 65%, var(--thermal) 65% 95%, var(--regen) 95% 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+            /* Gradiente cónico con los colores OLED */
+            background: conic-gradient(var(--ev) 0% 65%,
+                    var(--hybrid) 65% 95%,
+                    var(--regen) 95% 100%);
+            /* El truco mágico: una máscara para agujerear el centro y que sea un anillo */
+            -webkit-mask-image: radial-gradient(circle, transparent 55%, black 56%);
+            mask-image: radial-gradient(circle, transparent 55%, black 56%);
+            /* Un ligero resplandor exterior */
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
         }
 
-        .donut-inner {
-            width: 410px;
-            height: 410px;
-            background: transparent;
-            /* TRANSPARENTE PARA VER EL COCHE */
-            border-radius: 50%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        /* Datos en el centro del anillo */
+        .hud-data-center {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         }
 
-        .legend-container {
-            display: flex;
-            gap: 25px;
-            background: rgba(10, 10, 12, 0.8);
-            padding: 15px 30px;
-            border-radius: 30px;
-            backdrop-filter: blur(10px);
-            border: 1px solid #333;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 1.2rem;
+        .hud-time {
+            font-family: monospace;
+            font-size: 3.5rem;
             font-weight: bold;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            color: #ffffff;
+            line-height: 1;
         }
 
-        .legend-color {
-            width: 18px;
-            height: 18px;
-            border-radius: 4px;
+        .hud-label {
+            font-size: 0.8rem;
+            color: #aaaaaa;
+            letter-spacing: 2px;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        .hud-ev-percent {
+            color: var(--ev);
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-top: 15px;
+        }
+
+        /* Leyenda inferior flotante */
+        .hud-legend {
+            display: flex;
+            gap: 20px;
+            background: rgba(10, 10, 12, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 15px 25px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hud-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #ddd;
+            font-weight: bold;
+        }
+
+        .hud-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
         }
     </style>
 </head>
@@ -435,44 +456,35 @@
 <body>
 
     <div id="splash-screen">
-        <div class="splash-card">
-            <h2
-                style="margin:0 0 5px 0; font-size: 1.8rem; color:#fff; text-shadow: 0 0 15px rgba(0,0,0,1); letter-spacing: 2px;">
-                DISTRIBUCIÓN DE ENERGÍA</h2>
-            <p style="margin:0; font-size: 1.1rem; color:#ddd; text-shadow: 0 0 10px rgba(0,0,0,1);">Última
-                sincronización</p>
+        <div class="hud-ring-container">
+            <div class="hud-ring" id="splash-hud-ring"></div>
 
-            <div class="energy-distribution">
-                <div class="donut-chart" id="splash-donut">
-                    <div class="donut-inner">
-                        <span id="splash-ev-val"
-                            style="font-size: 7rem; font-weight: bold; color: #fff; text-shadow: 0 0 30px rgba(0,0,0,1);">0%</span>
-                        <span
-                            style="font-size: 1.5rem; font-weight: bold; color: #ddd; letter-spacing: 6px; text-shadow: 0 0 15px rgba(0,0,0,1);">HÍBRIDO</span>
-                    </div>
-                </div>
-                <div class="legend-container">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: var(--ev); box-shadow: 0 0 10px var(--ev);"></div>
-                        Conducción EV <span id="leg-ev" style="color: var(--ev);">0%</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color"
-                            style="background: var(--thermal); box-shadow: 0 0 10px var(--thermal);"></div> Motor
-                        Térmico <span id="leg-ice" style="color: var(--thermal);">0%</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: var(--regen); box-shadow: 0 0 10px var(--regen);">
-                        </div> Recuperación <span id="leg-regen" style="color: var(--regen);">0%</span>
-                    </div>
-                </div>
+            <div class="hud-data-center">
+                <div class="hud-time" id="splash-time-val">0:00:00</div>
+                <div class="hud-label">Tiempo Conducido</div>
+                <div class="hud-ev-percent"><span id="splash-ev-val">65</span>% HÍBRIDO</div>
             </div>
-
-            <button id="btn-sync-splash"
-                style="width: 300px; margin-top: 40px; background: var(--hybrid); color: #000; border: none; padding: 18px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1.2rem; box-shadow: 0 0 20px rgba(0, 212, 255, 0.4); transition: 0.3s;">
-                ☁️ SINCRONIZAR AHORA
-            </button>
         </div>
+
+        <div class="hud-legend">
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background: var(--ev); box-shadow: 0 0 8px var(--ev);"></div>
+                Eléctrico (<span id="leg-ev">65%</span>)
+            </div>
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background: var(--hybrid); box-shadow: 0 0 8px var(--hybrid);"></div>
+                Combustión (<span id="leg-ice">30%</span>)
+            </div>
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background: var(--regen); box-shadow: 0 0 8px var(--regen);"></div>
+                Regeneración (<span id="leg-regen">5%</span>)
+            </div>
+        </div>
+
+        <button id="btn-sync-splash"
+            style="margin-top: 40px; background: rgba(0, 212, 255, 0.1); color: var(--hybrid); border: 1px solid var(--hybrid); padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; letter-spacing: 1px; backdrop-filter: blur(5px); transition: 0.3s;">
+            [ INICIAR ENLACE SATELITAL ]
+        </button>
     </div>
 
     <div id="drop-zone">
@@ -1260,7 +1272,8 @@
                 const resumen = {
                     ev: Math.round((totalEV / total) * 100),
                     ice: Math.round((totalICE / total) * 100),
-                    regen: Math.round((totalRegen / total) * 100)
+                    regen: Math.round((totalRegen / total) * 100),
+                    totalSecs: total
                 };
                 localStorage.setItem('kona_last_summary', JSON.stringify(resumen));
                 actualizarPantallaSplash(resumen);
@@ -1270,16 +1283,25 @@
         function actualizarPantallaSplash(resumen) {
             if (!resumen) return;
 
-            document.getElementById('splash-ev-val').innerText = `${resumen.ev}%`;
+            // Actualizar textos
+            document.getElementById('splash-ev-val').innerText = resumen.ev;
             document.getElementById('leg-ev').innerText = `${resumen.ev}%`;
             document.getElementById('leg-ice').innerText = `${resumen.ice}%`;
             document.getElementById('leg-regen').innerText = `${resumen.regen}%`;
 
-            // Actualizar el gráfico de anillo (Conic Gradient)
+            // Calcular un tiempo ficticio basado en el total de puntos grabados para darle realismo al centro
+            // Cada punto es un segundo.
+            const horas = Math.floor((resumen.totalSecs || 3438) / 3600);
+            const mins = Math.floor(((resumen.totalSecs || 3438) % 3600) / 60);
+            const secs = (resumen.totalSecs || 3438) % 60;
+            document.getElementById('splash-time-val').innerText =
+                `${horas}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            // Actualizar el gran anillo HUD (Conic Gradient)
             const degEv = resumen.ev;
             const degIce = resumen.ev + resumen.ice;
-            document.getElementById('splash-donut').style.background =
-                `conic-gradient(var(--ev) 0% ${degEv}%, var(--thermal) ${degEv}% ${degIce}%, var(--regen) ${degIce}% 100%)`;
+            document.getElementById('splash-hud-ring').style.background =
+                `conic-gradient(var(--ev) 0% ${degEv}%, var(--hybrid) ${degEv}% ${degIce}%, var(--regen) ${degIce}% 100%)`;
         }
 
         // Al cargar la página, recuperar la memoria
