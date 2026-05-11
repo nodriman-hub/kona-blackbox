@@ -433,7 +433,7 @@
             text-align: center;
             text-shadow: 0 4px 15px rgba(0, 0, 0, 1);
             /* NUEVO: Limita el ancho al 80% del anillo para que no choque con los bordes */
-            width: 80%; 
+            width: 80%;
             /* Convierte esta caja en un contenedor de referencia para el tamaño de la fuente */
             container-type: inline-size;
         }
@@ -444,9 +444,10 @@
             font-weight: bold;
             color: #ffffff;
             line-height: 1;
-            white-space: nowrap; /* Impide que el texto salte a una segunda línea */
+            white-space: nowrap;
+            /* Impide que el texto salte a una segunda línea */
             /* NUEVO: El tamaño de la fuente es dinámico. Mínimo 1.5rem, Máximo 4rem, pero normalmente será el 18% del ancho disponible */
-            font-size: clamp(1.5rem, 18cqi, 4rem); 
+            font-size: clamp(1.5rem, 18cqi, 4rem);
         }
 
         .hud-label {
@@ -851,6 +852,7 @@
 
             const grupos = agruparViajes(trips);
 
+            // 1. PRIMERO: Dibujamos toda la interfaz al instante
             for (let i = 0; i < grupos.length; i++) {
                 const group = grupos[i];
                 const groupEl = document.createElement('div');
@@ -859,10 +861,9 @@
                 const header = document.createElement('div');
                 header.className = 'route-header';
                 const headerId = `route-title-${i}`;
-                header.innerHTML = `<span id="${headerId}">📍 Cargando... (${group.trips.length})</span> <span>▼</span>`;
+                header.innerHTML = `<span id="${headerId}">📍 Localizando... (${group.trips.length})</span> <span>▼</span>`;
                 header.onclick = () => groupEl.classList.toggle('active');
 
-                // Contenedor de viajes del grupo
                 const content = document.createElement('div');
                 content.className = 'route-content';
 
@@ -871,7 +872,6 @@
                     item.className = 'trip-item';
                     item.onclick = () => verDetalleViaje(trip);
 
-                    // Generar HTML de insignias
                     let badgesHtml = '';
                     if (trip.badges && trip.badges.length > 0) {
                         badgesHtml = `<div class="badge-container">` +
@@ -896,17 +896,28 @@
                 groupEl.appendChild(header);
                 groupEl.appendChild(content);
                 listDiv.appendChild(groupEl);
-
-                // Bautizamos la ruta con una pausa de 1.5 segundos para no ser bloqueados
-                setTimeout(async () => {
-                    const origen = await obtenerNombreCiudad(group.baseStart.lat, group.baseStart.lon);
-                    const destino = await obtenerNombreCiudad(group.baseEnd.lat, group.baseEnd.lon);
-                    const tituloFinal = origen === destino ? `Ruta local por ${origen}` : `${origen} ➔ ${destino}`;
-                    const span = document.getElementById(headerId);
-                    if (span) span.innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
-                }, i * 1500);
             }
+
             container.appendChild(listDiv);
+
+            // 2. SEGUNDO: Disparamos la cola de peticiones ordenadas
+            bautizarRutasOrdenadas(grupos);
+        }
+
+        // --- FUNCIÓN DE COLA SECUENCIAL ---
+        async function bautizarRutasOrdenadas(grupos) {
+            // Este bucle 'for...of' espera a que acabe una petición antes de lanzar la siguiente
+            for (let i = 0; i < grupos.length; i++) {
+                const group = grupos[i];
+                const headerSpan = document.getElementById(`route-title-${i}`);
+                if (!headerSpan) continue;
+
+                const origen = await obtenerNombreCiudad(group.baseStart.lat, group.baseStart.lon);
+                const destino = await obtenerNombreCiudad(group.baseEnd.lat, group.baseEnd.lon);
+
+                const tituloFinal = origen === destino ? `Ruta por ${origen}` : `${origen} ➔ ${destino}`;
+                headerSpan.innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
+            }
         }
 
         function verDetalleViaje(trip) {
@@ -1412,17 +1423,19 @@
         const cityCache = {};
 
         async function obtenerNombreCiudad(lat, lon) {
-            // Redondeamos a 2 decimales para agrupar coordenadas muy cercanas (aprox 1km) y usar la caché
+            // Redondeamos para agrupar coordenadas muy cercanas y usar la memoria
             const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
             if (cityCache[key]) return cityCache[key];
 
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                // Usamos BigDataCloud, mucho más permisivo para web
+                const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
                 if (!res.ok) return "Zona Desconocida";
                 const data = await res.json();
 
-                const nombre = data.address.city || data.address.town || data.address.village || data.address.municipality || "Ruta Local";
-                cityCache[key] = nombre; // Guardamos en memoria
+                // Extraemos la ciudad o localidad
+                const nombre = data.city || data.locality || "Ruta Local";
+                cityCache[key] = nombre;
                 return nombre;
             } catch (e) {
                 return "Zona Desconocida";
