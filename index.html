@@ -1543,13 +1543,18 @@
             // Ordenar por fecha del más antiguo al más nuevo para las gráficas
             accumulatedTrips.sort((a, b) => a.date - b.date);
 
-            // Ocultar Dropzone y Mostrar Dashboard (por si lo usas al arrancar la app)
+            // Ocultar Dropzone y Mostrar Dashboard
             document.getElementById('drop-zone').style.display = 'none';
             document.getElementById('dashboard').style.display = 'flex';
 
-            actualizarDashboard();
-            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 200);
-            guardarResumenLocal(accumulatedTrips);
+            // --- LA SOLUCIÓN MÁGICA ---
+            // Le damos 150 milisegundos al navegador para que asiente el HTML,
+            // calcule las alturas de los paneles y los gráficos no den altura 0
+            setTimeout(() => {
+                actualizarDashboard();
+                window.dispatchEvent(new Event('resize'));
+                guardarResumenLocal(accumulatedTrips);
+            }, 150);
         }
         // --- LÓGICA DEL SPLASH SCREEN Y MEMORIA ---
         function guardarResumenLocal(trips) {
