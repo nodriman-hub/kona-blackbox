@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kona BlackBox - Centro Forense</title>
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <style>
+        :root {
+            --bg: #000000;
+            --panel: #0a0a0c;
+            --text: #ffffff;
+            --ev: #00ff88;
+            --thermal: #ff4444;
+            --regen: #a29bfe;
+            --hybrid: #00d4ff;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, sans-serif;
+        }
+
+        /* Zona de arrastrar y soltar */
+        #drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            transition: 0.3s;
+            border: 2px dashed var(--ev);
+            box-sizing: border-box;
+        }
+
+        #drop-zone.dragover {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: #fff;
+        }
+
+        /* Layout del Dashboard */
+        #dashboard {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 15px 20px;
+            background: var(--panel);
+            border-bottom: 1px solid #222;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .side-panel {
+            width: 350px;
+            background: var(--panel);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #222;
+        }
+
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Componentes */
+        #map {
+            flex: 1;
+            background: #000;
+        }
+
+        .leaflet-tile-pane {
+            filter: none !important;
+        }
+
+        .leaflet-overlay-pane svg path {
+            filter: drop-shadow(0 0 6px currentColor);
+            stroke-linecap: round;
+        }
+
+        #charts {
+            height: 250px;
+            background: var(--panel);
+            border-top: 1px solid #222;
+            padding: 15px;
+        }
+
+        .stat-box {
+            background: #111;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #222;
+            border-left: 4px solid var(--ev);
+        }
+
+        .stat-title {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-val {
+            font-family: monospace;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .time-tabs {
+            display: flex;
+            gap: 5px;
+            margin-left: 20px;
+        }
+
+        .time-tab {
+            background: #222;
+            border: 1px solid #444;
+            color: #aaa;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .time-tab.active {
+            background: var(--hybrid);
+            color: #000;
+        }
+
+        /* Lista de Viajes */
+        .trip-list {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .trip-item {
+            background: #111;
+            border: 1px solid #222;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .trip-item:hover {
+            border-color: var(--hybrid);
+            background: #161618;
+        }
+
+        .trip-item.record-ev {
+            border-left: 4px solid var(--ev);
+        }
+
+        .trip-item.record-regen {
+            border-left: 4px solid var(--regen);
+        }
+
+        .trip-info-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .trip-date {
+            font-size: 0.75rem;
+            color: #666;
+            font-family: monospace;
+        }
+
+        .trip-dist {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .efficiency-bar-bg {
+            height: 4px;
+            background: #222;
+            width: 100%;
+            border-radius: 2px;
+            margin-top: 8px;
+        }
+
+        .efficiency-bar-fill {
+            height: 100%;
+            background: var(--ev);
+            box-shadow: 0 0 8px var(--ev);
+        }
+
+        .badge-record {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.6rem;
+            padding: 2px 5px;
+            border-radius: 3px;
+            background: var(--ev);
+            color: #000;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Acordeones y Grupos */
+        .route-group {
+            margin-bottom: 10px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .route-header {
+            background: #1a1a1c;
+            padding: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: var(--hybrid);
+        }
+
+        .route-header:hover {
+            background: #222;
+        }
+
+        .route-content {
+            display: none;
+            padding: 10px;
+            background: #0a0a0c;
+        }
+
+        .route-group.active .route-content {
+            display: block;
+        }
+
+        /* Insignias Dinámicas */
+        .badge-container {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+
+        .dynamic-badge {
+            font-size: 0.65rem;
+            padding: 3px 6px;
+            border-radius: 4px;
+            color: #000;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        /* Panel Radiografía del Motor */
+        #motor-radiography {
+            display: none;
+            /* Oculto en la vista global */
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 15px;
+            background: var(--panel);
+            border-top: 1px solid #222;
+        }
+
+        .motor-stat {
+            background: #111;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .motor-stat-title {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .motor-stat-time {
+            font-family: monospace;
+            font-size: 1.5rem;
+            color: #fff;
+        }
+
+        .motor-stat-percent {
+            font-size: 0.8rem;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        /* --- SPLASH SCREEN & GRÁFICO CIRCULAR --- */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('Gemini_Generated_Image_1t6ugn1t6ugn1t6u.png');
+            background-size: cover;
+            background-position: center;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Oscurecer un poco el fondo para que el texto resalte, pero permitiendo ver el coche */
+        #splash-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: -1;
+        }
+
+        .splash-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 20px;
+        }
+
+        .energy-distribution {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+            margin-top: 30px;
+        }
+
+        /* Gráfico de Anillo CSS puro GIGANTE */
+        .donut-chart {
+            width: 450px;
+            height: 450px;
+            border-radius: 50%;
+            background: conic-gradient(var(--ev) 0% 65%, var(--thermal) 65% 95%, var(--regen) 95% 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .donut-inner {
+            width: 410px;
+            height: 410px;
+            background: transparent;
+            /* TRANSPARENTE PARA VER EL COCHE */
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .legend-container {
+            display: flex;
+            gap: 25px;
+            background: rgba(10, 10, 12, 0.8);
+            padding: 15px 30px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="splash-screen">
+        <div class="splash-card">
+            <h2
+                style="margin:0 0 5px 0; font-size: 1.8rem; color:#fff; text-shadow: 0 0 15px rgba(0,0,0,1); letter-spacing: 2px;">
+                DISTRIBUCIÓN DE ENERGÍA</h2>
+            <p style="margin:0; font-size: 1.1rem; color:#ddd; text-shadow: 0 0 10px rgba(0,0,0,1);">Última
+                sincronización</p>
+
+            <div class="energy-distribution">
+                <div class="donut-chart" id="splash-donut">
+                    <div class="donut-inner">
+                        <span id="splash-ev-val"
+                            style="font-size: 7rem; font-weight: bold; color: #fff; text-shadow: 0 0 30px rgba(0,0,0,1);">0%</span>
+                        <span
+                            style="font-size: 1.5rem; font-weight: bold; color: #ddd; letter-spacing: 6px; text-shadow: 0 0 15px rgba(0,0,0,1);">HÍBRIDO</span>
+                    </div>
+                </div>
+                <div class="legend-container">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--ev); box-shadow: 0 0 10px var(--ev);"></div>
+                        Conducción EV <span id="leg-ev" style="color: var(--ev);">0%</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color"
+                            style="background: var(--thermal); box-shadow: 0 0 10px var(--thermal);"></div> Motor
+                        Térmico <span id="leg-ice" style="color: var(--thermal);">0%</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--regen); box-shadow: 0 0 10px var(--regen);">
+                        </div> Recuperación <span id="leg-regen" style="color: var(--regen);">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-sync-splash"
+                style="width: 300px; margin-top: 40px; background: var(--hybrid); color: #000; border: none; padding: 18px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1.2rem; box-shadow: 0 0 20px rgba(0, 212, 255, 0.4); transition: 0.3s;">
+                ☁️ SINCRONIZAR AHORA
+            </button>
+        </div>
+    </div>
+
+    <div id="drop-zone">
+        <h1 style="color: var(--ev); letter-spacing: 2px;">KONA BLACKBOX FORENSICS</h1>
+        <button id="btn-sync-cloud-main"
+            style="background: var(--hybrid); color: #000; border: none; padding: 15px 30px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 1.1rem; margin-top: 20px; transition: 0.2s;">
+            ☁️ SINCRONIZAR CON LA NUBE
+        </button>
+        <p style="color: #555; margin: 20px 0;">o</p>
+        <p style="color: #888; font-size: 0.9rem; margin-bottom: 15px;">Cargar archivo .CSV localmente</p>
+        <button id="btn-browse"
+            style="background: transparent; color: var(--ev); border: 1px solid var(--ev); padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s;">
+            SELECCIONAR ARCHIVO
+        </button>
+        <input type="file" id="file-input" accept=".csv" style="display: none;">
+    </div>
+
+    <div id="dashboard">
+        <header>
+            <div style="display: flex; align-items: center;">
+                <strong style="color: var(--hybrid);">📊 HISTÓRICO FORENSE</strong>
+                <span id="file-name" style="color:#888; margin-left:15px; font-size:0.9rem;">0 viajes</span>
+
+                <div class="time-tabs" id="view-tabs">
+                    <button class="time-tab active" data-period="all">TODO</button>
+                    <button class="time-tab" data-period="day">24H</button>
+                    <button class="time-tab" data-period="week">7 DÍAS</button>
+                    <button class="time-tab" data-period="month">30 DÍAS</button>
+                    <button class="time-tab" data-period="year">365 DÍAS</button>
+                </div>
+            </div>
+            <div>
+                <button id="btn-sync-cloud"
+                    style="background: var(--hybrid); color: #000; border: none; padding: 8px 15px; margin-right: 10px; border-radius: 5px; cursor:pointer; font-weight: bold;">
+                    ☁️ Sincronizar Nube
+                </button>
+                <button id="btn-add-csv"
+                    style="background: var(--ev); color: #000; border: none; padding: 8px 15px; border-radius: 5px; cursor:pointer; font-weight: bold;">
+                    + Añadir CSV Local
+                </button>
+            </div>
+        </header>
+
+        <div class="grid-layout">
+            <div class="side-panel">
+                <div class="stat-box" style="border-left-color: #aaa;">
+                    <div class="stat-title">🗺️ Distancia Total</div>
+                    <div class="stat-val"><span id="val-dist">0.0</span> <small
+                            style="font-size: 0.9rem; color:#888;">km</small></div>
+                </div>
+                <div class="stat-box" style="border-left-color: var(--ev);">
+                    <div class="stat-title">🟢 Conducción Cero Emisiones (EV + Regen)</div>
+                    <div class="stat-val">
+                        <span id="val-ev">0</span> <small style="font-size: 0.9rem; color:#888;">% tiempo</small>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #888; margin-top: 2px;">
+                        <span id="val-ev-km" style="color: var(--ev); font-weight: bold;">0.0</span> km
+                    </div>
+                </div>
+                <div class="stat-box" style="border-left-color: var(--thermal);">
+                    <div class="stat-title">⛽ Consumo Medio Estimado</div>
+                    <div class="stat-val"><span id="val-cons">0.0</span> <small
+                            style="font-size: 0.9rem; color:#888;">L/100km</small></div>
+                </div>
+                <div class="stat-box" style="border-left-color: var(--regen);">
+                    <div class="stat-title">📁 Viajes Analizados</div>
+                    <div class="stat-val"><span id="val-soc-diff">0</span></div>
+                </div>
+            </div>
+
+            <div class="main-panel">
+                <div id="map"></div>
+                <div id="charts">
+                    <canvas id="telemetryChart"></canvas>
+                </div>
+                <div id="motor-radiography"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN DEL DRAG & DROP ---
+        const dropZone = document.getElementById('drop-zone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            procesarArchivo(file);
+        });
+
+        // --- CARGA MANUAL DE ARCHIVO ---
+        const btnBrowse = document.getElementById('btn-browse');
+        const fileInput = document.getElementById('file-input');
+
+        btnBrowse.addEventListener('click', () => fileInput.click());
+        document.getElementById('btn-add-csv').addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => procesarArchivo(file));
+        });
+
+        // --- PROCESAMIENTO CON PAPAPARSE ---
+        function procesarArchivo(file) {
+            if (file && file.name.endsWith('.csv')) {
+                Papa.parse(file, {
+                    header: true, // Automáticamente usa la primera fila como nombres de variables
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        procesarDatos(results.data);
+                    },
+                    error: function (error) {
+                        alert("Error de PapaParse: " + error.message);
+                    }
+                });
+            } else {
+                alert("Por favor, selecciona un archivo .CSV válido generado por Supabase.");
+            }
+        }
+
+        // --- ACUMULADOR HISTÓRICO ---
+        let accumulatedTrips = [];
+        let currentPeriod = 'all';
+
+        // Escuchar pestañas de tiempo
+        document.querySelectorAll('.time-tab').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.time-tab').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentPeriod = e.target.dataset.period;
+                actualizarDashboard();
+            });
+        });
+
+        // --- NUEVO PROCESAMIENTO FORENSE (Iterador de filas) ---
+        function procesarDatos(filas) {
+            if (!filas || filas.length === 0) return;
+
+            accumulatedTrips = []; // Limpiamos si cargas un archivo nuevo
+
+            filas.forEach((fila, index) => {
+                // Si la fila no tiene route_data, la ignoramos
+                if (!fila.route_data) return;
+
+                try {
+                    // Primero intentamos desempaquetar el JSON normalmente
+                    let telemetriaRaw = [];
+                    try {
+                        telemetriaRaw = JSON.parse(fila.route_data);
+                    } catch (parseError) {
+                        console.warn(`JSON truncado o malformado en la fila ${index + 2}. Intentando recuperación forense...`);
+
+                        // Si falla (ej: por límite de exportación en CSV de Supabase, que corta campos muy largos),
+                        // extraemos todos los objetos de coordenadas completos mediante expresiones regulares.
+                        // Esto rescatará todas las coordenadas válidas antes de que el JSON se corte.
+                        const matches = fila.route_data.match(/\{[^{}]+\}/g);
+                        if (matches) {
+                            matches.forEach(m => {
+                                try { telemetriaRaw.push(JSON.parse(m)); } catch (e) { }
+                            });
+                        }
+                    }
+
+                    const coordenadas = [];
+
+                    telemetriaRaw.forEach(punto => {
+                        if (punto.lat && punto.lng) {
+                            coordenadas.push({
+                                lat: punto.lat,
+                                lon: punto.lng,
+                                mode: punto.mode || 'UNKNOWN',
+                                alt: punto.alt || 0,
+                                ts: punto.ts || 0
+                            });
+                        }
+                    });
+
+                    // Extraer KPIs precalculados desde Supabase
+                    const distTotal = parseFloat(fila.total_km) || 0;
+                    const distEv = parseFloat(fila.ev_km) || 0;
+                    const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
+                    const iceDist = distTotal - distEv;
+                    const tripFuel = iceDist * (5.5 / 100); // Estimación
+
+                    let tripDate = new Date(fila.created_at);
+                    if (isNaN(tripDate.getTime())) tripDate = new Date();
+
+                    accumulatedTrips.push({
+                        date: tripDate,
+                        dist: distTotal,
+                        distEv: distEv,
+                        ev: evPercent,
+                        fuel: tripFuel,
+                        coords: coordenadas
+                    });
+
+                } catch (error) {
+                    console.error(`Fallo crítico irrecuperable en la fila ${index + 2}:`, error);
+                }
+            });
+
+            // Ordenar por fecha
+            accumulatedTrips.sort((a, b) => a.date - b.date);
+
+            if (accumulatedTrips.length > 0) {
+                // Ocultar Dropzone y Mostrar Dashboard
+                document.getElementById('drop-zone').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'flex';
+
+                actualizarDashboard();
+
+                // Forzar resize de los mapas y gráficos
+                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 200);
+            } else {
+                alert("No se pudo procesar ningún viaje válido. Revisa la consola.");
+            }
+        }
+
+        // --- ACTUALIZACIÓN DE MÉTRICAS GLOBALES ---
+        function actualizarDashboard() {
+            document.getElementById('motor-radiography').style.display = 'none';
+            const now = Date.now();
+            const periods = {
+                'day': 86400000, 'week': 86400000 * 7,
+                'month': 86400000 * 30, 'year': 86400000 * 365, 'all': Infinity
+            };
+
+            const filteredTrips = accumulatedTrips.filter(t => (now - t.date.getTime()) <= periods[currentPeriod]);
+
+            // 1. Calcular KPIs Globales
+            let totalDist = 0, totalFuel = 0, sumEv = 0, totalDistEv = 0;
+            filteredTrips.forEach(t => {
+                totalDist += t.dist;
+                totalDistEv += t.distEv;
+                totalFuel += t.fuel;
+                sumEv += t.ev;
+            });
+
+            document.getElementById('val-dist').innerText = totalDist.toFixed(2);
+            document.getElementById('val-ev').innerText = (filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0).toFixed(1);
+            document.getElementById('val-ev-km').innerText = totalDistEv.toFixed(1);
+            document.getElementById('val-cons').innerText = (totalDist > 0 ? (totalFuel * 100) / totalDist : 0).toFixed(1);
+            document.getElementById('val-soc-diff').innerText = filteredTrips.length;
+            document.getElementById('file-name').innerText = `${filteredTrips.length} viajes mostrados`;
+
+            // 2. Ejecutar "El Juez" (Agrupación de Rutas)
+            renderizarHistorial(filteredTrips);
+
+            dibujarMapaGlobal(filteredTrips);
+            dibujarGraficaGlobal(filteredTrips);
+        }
+
+        function renderizarHistorial(trips) {
+            const container = document.querySelector('.side-panel');
+            const oldList = document.querySelector('.trip-list');
+            if (oldList) oldList.remove();
+
+            const listDiv = document.createElement('div');
+            listDiv.className = 'trip-list';
+            listDiv.innerHTML = `<h3 style="color: #444; font-size: 0.8rem; margin: 20px 0 10px 0; border-top: 1px solid #222; padding-top: 15px;">RUTAS AGRUPADAS</h3>`;
+
+            const grupos = agruparViajes(trips);
+
+            grupos.forEach((group, i) => {
+                const groupEl = document.createElement('div');
+                groupEl.className = 'route-group';
+
+                // Cabecera del desplegable
+                const header = document.createElement('div');
+                header.className = 'route-header';
+
+                // Le damos un ID temporal al título
+                const headerId = `route-title-${i}`;
+                header.innerHTML = `<span id="${headerId}">📍 Calculando ruta... (${group.trips.length} viajes)</span> <span>▼</span>`;
+                header.onclick = () => groupEl.classList.toggle('active');
+
+                // Llamada asíncrona para bautizar la ruta
+                setTimeout(async () => {
+                    const origen = await obtenerNombreCiudad(group.baseStart.lat, group.baseStart.lon);
+                    const destino = await obtenerNombreCiudad(group.baseEnd.lat, group.baseEnd.lon);
+                    const tituloFinal = origen === destino ? `Ruta local por ${origen}` : `${origen} ➔ ${destino}`;
+                    document.getElementById(headerId).innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
+                }, i * 1200); // Pausamos 1.2s entre peticiones para no saturar la API gratuita
+
+                // Contenedor de viajes del grupo
+                const content = document.createElement('div');
+                content.className = 'route-content';
+
+                group.trips.slice().reverse().forEach(trip => {
+                    const item = document.createElement('div');
+                    item.className = 'trip-item';
+                    item.onclick = () => verDetalleViaje(trip);
+
+                    // Generar HTML de insignias
+                    let badgesHtml = '';
+                    if (trip.badges && trip.badges.length > 0) {
+                        badgesHtml = `<div class="badge-container">` +
+                            trip.badges.map(b => `<span class="dynamic-badge" style="background: ${b.color}">${b.text}</span>`).join('') +
+                            `</div>`;
+                    }
+
+                    item.innerHTML = `
+                        <div class="trip-info-main">
+                            <span class="trip-dist">${trip.dist.toFixed(1)} km</span>
+                            <span class="trip-date">${trip.date.toLocaleDateString()} ${trip.date.getHours()}:${trip.date.getMinutes().toString().padStart(2, '0')}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #888;">Eficiencia EV: ${trip.ev.toFixed(1)}%</div>
+                        <div class="efficiency-bar-bg">
+                            <div class="efficiency-bar-fill" style="width: ${trip.ev}%"></div>
+                        </div>
+                        ${badgesHtml}
+                    `;
+                    content.appendChild(item);
+                });
+
+                groupEl.appendChild(header);
+                groupEl.appendChild(content);
+                listDiv.appendChild(groupEl);
+            });
+
+            container.appendChild(listDiv);
+        }
+
+        function verDetalleViaje(trip) {
+            // 1. Limpiar Mapa y dibujar ruta de neón específica
+            if (mapInstance) mapInstance.remove();
+            mapInstance = L.map('map').setView([trip.coords[0].lat, trip.coords[0].lon], 15);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
+
+            const colors = {
+                'ELECTRIC': '#00ff88', 'REGEN': '#a29bfe',
+                'THERMAL': '#ff4444', 'HYBRID': '#00d4ff'
+            };
+
+            const polylinePoints = [];
+            for (let i = 0; i < trip.coords.length - 1; i++) {
+                const p1 = trip.coords[i];
+                const p2 = trip.coords[i + 1];
+                const color = colors[p1.mode] || '#fff';
+
+                L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+                    color: color,
+                    weight: 5,
+                    opacity: 1
+                }).addTo(mapInstance);
+                polylinePoints.push([p1.lat, p1.lon]);
+            }
+            if (polylinePoints.length > 0) {
+                mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
+            }
+
+            // 2. Actualizar Gráfica con el perfil de altitud del viaje
+            actualizarGraficaForense(trip);
+            renderizarRadiografia(trip);
+        }
+
+        function actualizarGraficaForense(trip) {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const labels = [];
+            const altitudes = [];
+            const slopes = [];
+
+            let engineBrakeCount = 0;
+            let distAccumulated = 0;
+
+            for (let i = 0; i < trip.coords.length; i++) {
+                const c = trip.coords[i];
+
+                // Calcular distancia acumulada para el eje X
+                if (i > 0) {
+                    const prev = trip.coords[i - 1];
+                    distAccumulated += getDistanceFromLatLonInKm(prev.lat, prev.lon, c.lat, c.lon);
+
+                    // Cálculo real de Inclinación (Pendiente % = Desnivel / Distancia * 100)
+                    const elevationDiff = c.alt - prev.alt;
+                    const distMeters = getDistanceFromLatLonInKm(prev.lat, prev.lon, c.lat, c.lon) * 1000;
+                    let currentSlope = distMeters > 0 ? (elevationDiff / distMeters) * 100 : 0;
+
+                    // Suavizado forense para evitar picos irreales del GPS
+                    currentSlope = Math.max(-20, Math.min(20, currentSlope));
+                    slopes.push(currentSlope.toFixed(1));
+                } else {
+                    slopes.push(0);
+                }
+
+                labels.push(distAccumulated.toFixed(2) + ' km');
+                altitudes.push(c.alt);
+
+                // Detección de Freno Motor. Si tu app futura manda "ENGINE_BRAKE", lo contamos.
+                // Si no, lo inferimos: Descenso fuerte (< -4%) + Motor Térmico Encendido = Freno Motor
+                if (c.mode === 'ENGINE_BRAKE' || (c.mode === 'THERMAL' && slopes[i] < -4)) {
+                    engineBrakeCount++;
+                }
+            }
+
+            // Mostrar el dato de freno motor (puedes crear un div específico para esto luego, por ahora lo lanzamos por consola para validarlo)
+            console.log(`⏱️ Tiempo estimado en Freno Motor: ${engineBrakeCount} segundos (Afecta negativamente al consumo ICE)`);
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Altitud (m)',
+                            data: altitudes,
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Inclinación (%)',
+                            data: slopes,
+                            borderColor: '#ffaa00',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { ticks: { color: '#888', maxTicksLimit: 10 } },
+                        y: { type: 'linear', display: true, position: 'left', grid: { color: '#222' }, title: { display: true, text: 'Elevación (m)', color: '#00d4ff' } },
+                        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Inclinación (%)', color: '#ffaa00' } }
+                    }
+                }
+            });
+        }
+
+        function renderizarRadiografia(trip) {
+            const panel = document.getElementById('motor-radiography');
+            panel.style.display = 'grid';
+
+            let tiempos = {
+                electric: 0, // Incluye ELECTRIC y REGEN
+                hybrid: 0,   // Modo HYBRID o aceleración combinada
+                engineBrake: 0, // THERMAL en bajadas pronunciadas
+                stopped: 0   // Velocidad cercana a 0
+            };
+
+            let totalSeconds = 0;
+
+            for (let i = 1; i < trip.coords.length; i++) {
+                const prev = trip.coords[i - 1];
+                const curr = trip.coords[i];
+
+                // Si no hay timestamp válido, estimamos 1 segundo por punto (frecuencia típica del OBD)
+                let deltaSecs = (curr.ts && prev.ts) ? (curr.ts - prev.ts) / 1000 : 1;
+
+                // Evitar saltos de tiempo irreales si se perdió la conexión del GPS
+                if (deltaSecs > 60 || deltaSecs < 0) deltaSecs = 1;
+
+                totalSeconds += deltaSecs;
+
+                // Cálculos para determinar el estado
+                const distMeters = getDistanceFromLatLonInKm(prev.lat, prev.lon, curr.lat, curr.lon) * 1000;
+                const speedKmh = (distMeters / deltaSecs) * 3.6;
+                const elevationDiff = curr.alt - prev.alt;
+                const slope = distMeters > 0 ? (elevationDiff / distMeters) * 100 : 0;
+
+                // Clasificación de la telemetría
+                if (speedKmh < 3) {
+                    tiempos.stopped += deltaSecs;
+                } else if (curr.mode === 'ENGINE_BRAKE' || (curr.mode === 'THERMAL' && slope < -3.5)) {
+                    // Motor de combustión actuando como retención en bajada
+                    tiempos.engineBrake += deltaSecs;
+                } else if (curr.mode === 'ELECTRIC' || curr.mode === 'REGEN') {
+                    tiempos.electric += deltaSecs;
+                } else if (curr.mode === 'HYBRID' || curr.mode === 'THERMAL') {
+                    // Uso térmico activo (tracción)
+                    tiempos.hybrid += deltaSecs;
+                } else {
+                    // Por defecto, si hay movimiento pero no modo, sumamos a híbrido
+                    tiempos.hybrid += deltaSecs;
+                }
+            }
+
+            // Funciones de ayuda para formatear el tiempo
+            const formatTime = (secs) => {
+                const m = Math.floor(secs / 60);
+                const s = Math.floor(secs % 60);
+                return `${m}m ${s}s`;
+            };
+            const getPercent = (secs) => totalSeconds > 0 ? ((secs / totalSeconds) * 100).toFixed(1) : 0;
+
+            // Pintar los datos en el panel
+            panel.innerHTML = `
+                <div class="motor-stat" style="border-bottom: 3px solid var(--ev)">
+                    <div class="motor-stat-title">⚡ Modo Eléctrico</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.electric)}</div>
+                    <div class="motor-stat-percent" style="color: var(--ev)">${getPercent(tiempos.electric)}%</div>
+                </div>
+                <div class="motor-stat" style="border-bottom: 3px solid var(--hybrid)">
+                    <div class="motor-stat-title">⚙️ Tracción Híbrida</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.hybrid)}</div>
+                    <div class="motor-stat-percent" style="color: var(--hybrid)">${getPercent(tiempos.hybrid)}%</div>
+                </div>
+                <div class="motor-stat" style="border-bottom: 3px solid var(--thermal)">
+                    <div class="motor-stat-title">📉 Freno Motor (ICE)</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.engineBrake)}</div>
+                    <div class="motor-stat-percent" style="color: var(--thermal)">${getPercent(tiempos.engineBrake)}%</div>
+                </div>
+                <div class="motor-stat" style="border-bottom: 3px solid #666">
+                    <div class="motor-stat-title">🛑 Detenido / Semáforos</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.stopped)}</div>
+                    <div class="motor-stat-percent" style="color: #888">${getPercent(tiempos.stopped)}%</div>
+                </div>
+            `;
+        }
+
+        // --- DIBUJAR MAPA DE CALOR GLOBAL ---
+        let mapInstance = null;
+        function dibujarMapaGlobal(trips) {
+            if (mapInstance) mapInstance.remove();
+            if (trips.length === 0) return;
+
+            mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
+
+            // Extraer todos los puntos para la capa de calor
+            const heatPoints = [];
+            trips.forEach(trip => {
+                trip.coords.forEach(c => {
+                    // Formato para leaflet-heat: [latitud, longitud, intensidad]
+                    heatPoints.push([c.lat, c.lon, 1]);
+                });
+            });
+
+            // Crear y añadir la capa térmica con estilo Cyberpunk
+            L.heatLayer(heatPoints, {
+                radius: 12,
+                blur: 15,
+                maxZoom: 15,
+                gradient: {
+                    0.2: '#00d4ff', // Azul Cian (Baja densidad / Zonas esporádicas)
+                    0.5: '#00ff88', // Verde Neón (Media densidad)
+                    0.8: '#ffaa00', // Naranja (Alta densidad)
+                    1.0: '#ff4444'  // Rojo (Zonas críticas / Rutas diarias)
+                }
+            }).addTo(mapInstance);
+
+            // Ajustar la vista del mapa para englobar toda la zona de actividad
+            if (heatPoints.length > 0) {
+                const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
+                mapInstance.fitBounds(bounds, { padding: [30, 30] });
+            }
+        }
+
+        // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
+        function agruparViajes(trips) {
+            const rutasAgrupadas = [];
+
+            trips.forEach(trip => {
+                if (trip.coords.length === 0) return;
+
+                const start = trip.coords[0];
+                const end = trip.coords[trip.coords.length - 1];
+                let matchedGroup = null;
+
+                // Buscar si existe un grupo con un origen y destino similar (radio de 2.5km)
+                for (let group of rutasAgrupadas) {
+                    const groupStart = group.baseStart;
+                    const groupEnd = group.baseEnd;
+
+                    const distStart = getDistanceFromLatLonInKm(start.lat, start.lon, groupStart.lat, groupStart.lon);
+                    const distEnd = getDistanceFromLatLonInKm(end.lat, end.lon, groupEnd.lat, groupEnd.lon);
+
+                    // Si coincide origen y destino (o es el viaje de vuelta, invertido)
+                    if ((distStart < 2.5 && distEnd < 2.5) || (distStart < 2.5 && distEnd < 2.5)) {
+                        matchedGroup = group;
+                        break;
+                    }
+                }
+
+                if (matchedGroup) {
+                    matchedGroup.trips.push(trip);
+                } else {
+                    rutasAgrupadas.push({
+                        id: `Ruta_${rutasAgrupadas.length + 1}`,
+                        baseStart: start,
+                        baseEnd: end,
+                        trips: [trip]
+                    });
+                }
+            });
+
+            // Otorgar insignias dentro de cada grupo
+            rutasAgrupadas.forEach(group => {
+                if (group.trips.length > 1) {
+                    let maxEv = -1, minConsumo = 999, maxRegen = -1;
+
+                    group.trips.forEach(t => {
+                        if (t.ev > maxEv) maxEv = t.ev;
+                        if (t.fuel < minConsumo) minConsumo = t.fuel;
+
+                        // Calcular tiempo de regeneración contando los puntos 'REGEN'
+                        const regenPoints = t.coords.filter(c => c.mode === 'REGEN').length;
+                        if (regenPoints > maxRegen) maxRegen = regenPoints;
+                        t.regenScore = regenPoints;
+                    });
+
+                    group.trips.forEach(t => {
+                        t.badges = [];
+                        if (t.ev === maxEv) t.badges.push({ text: '🥇 EV KING', color: 'var(--ev)' });
+                        if (t.fuel === minConsumo) t.badges.push({ text: '⛽ ECO-MILLER', color: 'var(--hybrid)' });
+                        if (t.regenScore === maxRegen) t.badges.push({ text: '🔋 REGEN MASTER', color: 'var(--regen)' });
+                    });
+                }
+            });
+
+            return rutasAgrupadas;
+        }
+
+        // --- CÁLCULOS MATEMÁTICOS ---
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371; const dLat = (lat2 - lat1) * (Math.PI / 180); const dLon = (lon2 - lon1) * (Math.PI / 180);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // --- GRÁFICA MULTI-EJE HISTÓRICA ---
+        let chartInstance = null;
+        function dibujarGraficaGlobal(trips) {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            // Preparamos los datos por viaje
+            const labels = trips.map((t, i) => `Viaje ${i + 1}`);
+            const distances = trips.map(t => t.dist.toFixed(1));
+            const evs = trips.map(t => t.ev.toFixed(1));
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Distancia (km)', data: distances, backgroundColor: 'rgba(0, 212, 255, 0.5)', borderColor: '#00d4ff', borderWidth: 1, yAxisID: 'y' },
+                        { label: 'Uso EV (%)', type: 'line', data: evs, borderColor: '#00ff88', borderWidth: 2, pointRadius: 4, tension: 0.3, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { display: true, grid: { display: false } },
+                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Distancia (km)', color: '#888' }, grid: { color: '#222' } },
+                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Eficiencia EV (%)', color: '#888' }, min: 0, max: 100, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+        // --- CONEXIÓN A LA NUBE (SUPABASE) ---
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jdttfzixffasuorvqklv.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkdHRmeml4ZmZhc3VvcnZxa2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDA5ODAsImV4cCI6MjA5MDE3Njk4MH0.Wrwc7bbW1vhEvXebHAroH6_Lpf93f6egBN5SSr6cmmk';
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+        document.getElementById('btn-sync-cloud').addEventListener('click', descargarDatosNube);
+        document.getElementById('btn-sync-cloud-main').addEventListener('click', descargarDatosNube);
+
+        async function descargarDatosNube(event) {
+            const btn = event ? event.currentTarget : document.getElementById('btn-sync-cloud-main');
+            const textoOriginal = btn.innerHTML;
+            btn.innerHTML = '⏳ Descargando...';
+            btn.disabled = true;
+
+            try {
+                // Consultamos todos los viajes. 
+                // En un futuro, si tienes miles, aquí podríamos poner un filtro de fecha (.gte('created_at', fecha))
+                const { data, error } = await supabaseClient
+                    .from('trips') // <-- CAMBIA ESTO por el nombre de tu tabla
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    procesarDatosNube(data);
+                } else {
+                    alert("No se encontraron viajes en la nube.");
+                }
+            } catch (error) {
+                console.error("Error al descargar de Supabase:", error);
+                alert("Error de conexión. Revisa la consola.");
+            } finally {
+                btn.innerHTML = textoOriginal;
+                btn.disabled = false;
+            }
+        }
+
+        function procesarDatosNube(filas) {
+            if (!filas || filas.length === 0) return;
+
+            accumulatedTrips = []; // Limpiamos para cargar lo de la nube
+
+            filas.forEach((fila, index) => {
+                if (!fila.route_data) return;
+
+                try {
+                    // Magia de Supabase: Si es jsonb en BD, ya es un objeto. Si es texto, lo parseamos.
+                    const telemetriaRaw = typeof fila.route_data === 'string' ? JSON.parse(fila.route_data) : fila.route_data;
+                    const coordenadas = [];
+
+                    telemetriaRaw.forEach(punto => {
+                        if (punto.lat && punto.lng) {
+                            coordenadas.push({
+                                lat: punto.lat,
+                                lon: punto.lng,
+                                mode: punto.mode || 'UNKNOWN',
+                                alt: punto.alt || 0,
+                                ts: punto.ts || 0 // Mantenemos el soporte para la radiografía del motor
+                            });
+                        }
+                    });
+
+                    // Extraer KPIs (asegurándonos de convertir a número)
+                    const distTotal = parseFloat(fila.total_km) || 0;
+                    const distEv = parseFloat(fila.ev_km) || 0;
+                    const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
+                    const iceDist = distTotal - distEv;
+                    const tripFuel = iceDist * (5.5 / 100);
+
+                    let tripDate = new Date(fila.created_at);
+                    if (isNaN(tripDate.getTime())) tripDate = new Date();
+
+                    accumulatedTrips.push({
+                        date: tripDate,
+                        dist: distTotal,
+                        distEv: distEv,
+                        ev: evPercent,
+                        fuel: tripFuel,
+                        coords: coordenadas
+                    });
+
+                } catch (error) {
+                    console.error(`Fallo al procesar el viaje de la nube con ID ${fila.id}:`, error);
+                }
+            });
+
+            // Ordenar por fecha del más antiguo al más nuevo para las gráficas
+            accumulatedTrips.sort((a, b) => a.date - b.date);
+
+            // Ocultar Dropzone y Mostrar Dashboard (por si lo usas al arrancar la app)
+            document.getElementById('drop-zone').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'flex';
+
+            actualizarDashboard();
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 200);
+            guardarResumenLocal(accumulatedTrips);
+        }
+        // --- LÓGICA DEL SPLASH SCREEN Y MEMORIA ---
+        function guardarResumenLocal(trips) {
+            let totalEV = 0, totalICE = 0, totalRegen = 0;
+
+            // Contamos los puntos de cada modo para sacar un porcentaje global simple
+            trips.forEach(t => {
+                t.coords.forEach(c => {
+                    if (c.mode === 'ELECTRIC') totalEV++;
+                    else if (c.mode === 'REGEN') totalRegen++;
+                    else totalICE++; // HYBRID, THERMAL o ENGINE_BRAKE
+                });
+            });
+
+            const total = totalEV + totalICE + totalRegen;
+            if (total > 0) {
+                const resumen = {
+                    ev: Math.round((totalEV / total) * 100),
+                    ice: Math.round((totalICE / total) * 100),
+                    regen: Math.round((totalRegen / total) * 100)
+                };
+                localStorage.setItem('kona_last_summary', JSON.stringify(resumen));
+                actualizarPantallaSplash(resumen);
+            }
+        }
+
+        function actualizarPantallaSplash(resumen) {
+            if (!resumen) return;
+
+            document.getElementById('splash-ev-val').innerText = `${resumen.ev}%`;
+            document.getElementById('leg-ev').innerText = `${resumen.ev}%`;
+            document.getElementById('leg-ice').innerText = `${resumen.ice}%`;
+            document.getElementById('leg-regen').innerText = `${resumen.regen}%`;
+
+            // Actualizar el gráfico de anillo (Conic Gradient)
+            const degEv = resumen.ev;
+            const degIce = resumen.ev + resumen.ice;
+            document.getElementById('splash-donut').style.background =
+                `conic-gradient(var(--ev) 0% ${degEv}%, var(--thermal) ${degEv}% ${degIce}%, var(--regen) ${degIce}% 100%)`;
+        }
+
+        // Al cargar la página, recuperar la memoria
+        window.addEventListener('DOMContentLoaded', () => {
+            const memoria = localStorage.getItem('kona_last_summary');
+            if (memoria) actualizarPantallaSplash(JSON.parse(memoria));
+        });
+
+        // El botón del Splash inicia la sincronización y luego oculta la pantalla
+        document.getElementById('btn-sync-splash').addEventListener('click', async () => {
+            await descargarDatosNube();
+            document.getElementById('splash-screen').style.opacity = '0';
+            setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 500);
+        });
+
+        // --- GEOTAG AUTOMÁTICO (OpenStreetMap API) ---
+        async function obtenerNombreCiudad(lat, lon) {
+            try {
+                // Hacemos una petición a la API gratuita de Nominatim
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                const data = await res.json();
+                // Extraemos la ciudad, pueblo, villa o municipio
+                return data.address.city || data.address.town || data.address.village || data.address.municipality || "Desconocido";
+            } catch (e) {
+                return "Desconocido";
+            }
+        }
+    </script>
+</body>
+
+</html>
