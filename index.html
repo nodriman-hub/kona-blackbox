@@ -106,6 +106,8 @@
         /* Componentes */
         #map {
             flex: 1;
+            min-height: 300px;
+            /* Blindaje: imposible que sea 0 en móvil */
             background: #000;
         }
 
@@ -1316,6 +1318,10 @@
             if (trips.length === 0) return;
 
             mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
+
+            // Forzamos a Leaflet a actualizar su tamaño interno antes de pintar
+            mapInstance.invalidateSize();
+
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
 
             // Extraer todos los puntos para la capa de calor
@@ -1555,14 +1561,15 @@
             document.getElementById('drop-zone').style.display = 'none';
             document.getElementById('dashboard').style.display = 'flex';
 
-            // --- LA SOLUCIÓN MÁGICA ---
-            // Le damos 150 milisegundos al navegador para que asiente el HTML,
-            // calcule las alturas de los paneles y los gráficos no den altura 0
+            // Forzamos al navegador a calcular las alturas reales AHORA (reflow)
+            document.getElementById('dashboard').offsetHeight;
+
+            // 250ms de margen para que la pantalla se asiente antes de pintar
             setTimeout(() => {
                 actualizarDashboard();
                 window.dispatchEvent(new Event('resize'));
                 guardarResumenLocal(accumulatedTrips);
-            }, 150);
+            }, 250);
         }
         // --- LÓGICA DEL SPLASH SCREEN Y MEMORIA ---
         function guardarResumenLocal(trips) {
