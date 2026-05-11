@@ -1364,16 +1364,21 @@
                 const end = trip.coords[trip.coords.length - 1];
                 let matchedGroup = null;
 
-                // Buscar si existe un grupo con un origen y destino similar (radio de 2.5km)
+                // Buscar si existe un grupo con un origen y destino similar (radio ampliado a 4km)
                 for (let group of rutasAgrupadas) {
                     const groupStart = group.baseStart;
                     const groupEnd = group.baseEnd;
 
+                    // Distancias normales (Ida)
                     const distStart = getDistanceFromLatLonInKm(start.lat, start.lon, groupStart.lat, groupStart.lon);
                     const distEnd = getDistanceFromLatLonInKm(end.lat, end.lon, groupEnd.lat, groupEnd.lon);
 
-                    // Si coincide origen y destino (o es el viaje de vuelta, invertido)
-                    if ((distStart < 2.5 && distEnd < 2.5) || (distStart < 2.5 && distEnd < 2.5)) {
+                    // Distancias cruzadas (Vuelta: El inicio de ahora es el final del grupo)
+                    const distStartReverse = getDistanceFromLatLonInKm(start.lat, start.lon, groupEnd.lat, groupEnd.lon);
+                    const distEndReverse = getDistanceFromLatLonInKm(end.lat, end.lon, groupStart.lat, groupStart.lon);
+
+                    // Si coincide origen y destino (Ida) O BIEN están invertidos (Vuelta)
+                    if ((distStart < 4 && distEnd < 4) || (distStartReverse < 4 && distEndReverse < 4)) {
                         matchedGroup = group;
                         break;
                     }
