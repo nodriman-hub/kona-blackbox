@@ -629,6 +629,84 @@
             color: #aaa;
             margin-bottom: 5px;
         }
+
+        /* --- VEREDICTO TOPOGRÁFICO --- */
+        #topo-verdict {
+            display: none;
+            background: linear-gradient(135deg, #111, #0a0a0c);
+            border: 1px solid #333;
+            border-radius: 8px;
+            margin: 15px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .topo-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .topo-icon {
+            font-size: 1.5rem;
+        }
+
+        .topo-title {
+            color: var(--hybrid);
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .topo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .topo-metric {
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            border-left: 3px solid #555;
+            text-align: center;
+        }
+
+        .topo-val {
+            font-size: 1.4rem;
+            font-family: monospace;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .topo-label {
+            font-size: 0.65rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+
+        .topo-ai-verdict {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px dashed;
+            font-size: 0.85rem;
+            color: #ddd;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .topo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 
@@ -724,7 +802,7 @@
                     </div>
                 </div>
                 <div class="stat-box" style="border-left-color: var(--thermal);">
-                    <div class="stat-title">⛽ Consumo Medio Estimado</div>
+                    <div class="stat-title">⛽ Consumo Medio Real</div>
                     <div class="stat-val"><span id="val-cons">0.0</span> <small
                             style="font-size: 0.9rem; color:#888;">L/100km</small></div>
                 </div>
@@ -740,6 +818,7 @@
                     <canvas id="telemetryChart"></canvas>
                 </div>
                 <div id="motor-radiography"></div>
+                <div id="topo-verdict"></div>
             </div>
         </div>
     </div>
@@ -917,7 +996,8 @@
                     const distEv = parseFloat(fila.ev_km) || 0;
                     const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
                     const iceDist = distTotal - distEv;
-                    const tripFuel = iceDist * (5.5 / 100); // Estimación
+                    // NUEVA LÍNEA: Lee el dato real. Si no existe (viajes antiguos), usa la estimación
+                    const tripFuel = parseFloat(fila.fuel_liters) || (iceDist * (5.5 / 100));
 
                     let tripDate = new Date(fila.created_at);
                     if (isNaN(tripDate.getTime())) tripDate = new Date();
@@ -1146,6 +1226,9 @@
             // 2. Actualizar Gráfica con el perfil de altitud del viaje
             actualizarGraficaForense(trip);
             renderizarRadiografia(trip);
+
+            // 3. Veredicto Topográfico
+            renderizarVeredictoTopografico(trip);
         }
 
         function actualizarGraficaForense(trip) {
@@ -1307,6 +1390,86 @@
                     <div class="motor-stat-title">🛑 Detenido / Semáforos</div>
                     <div class="motor-stat-time">${formatTime(tiempos.stopped)}</div>
                     <div class="motor-stat-percent" style="color: #888">${getPercent(tiempos.stopped)}%</div>
+                </div>
+            `;
+        }
+
+        function renderizarVeredictoTopografico(trip) {
+            const panel = document.getElementById('topo-verdict');
+            if (trip.coords.length < 2) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            panel.style.display = 'block';
+
+            let ascencionTotal = 0;
+            let descensoTotal = 0;
+            let altMaxima = -9999;
+            let altMinima = 9999;
+
+            let regenEnBajada = 0;
+            let iceEnSubida = 0;
+
+            for (let i = 1; i < trip.coords.length; i++) {
+                const prev = trip.coords[i - 1];
+                const curr = trip.coords[i];
+                const diff = curr.alt - prev.alt;
+
+                if (diff > 0) ascencionTotal += diff;
+                else descensoTotal += Math.abs(diff);
+
+                if (curr.alt > altMaxima) altMaxima = curr.alt;
+                if (curr.alt < altMinima) altMinima = curr.alt;
+
+                if (diff < -1 && curr.mode === 'REGEN') regenEnBajada++;
+                if (diff > 1 && (curr.mode === 'THERMAL' || curr.mode === 'HYBRID')) iceEnSubida++;
+            }
+
+            let veredicto = "";
+            let borderColor = "";
+            let icon = "";
+            const desnivelNeto = ascencionTotal - descensoTotal;
+
+            if (ascencionTotal < 30 && descensoTotal < 30) {
+                icon = "🛣️";
+                borderColor = "var(--ev)";
+                veredicto = `<strong>Terreno Llano (Ecosistema EV):</strong> Ruta sin exigencias topográficas. Las condiciones fueron ideales para maximizar la autonomía de la batería, permitiendo un alto porcentaje de rodaje en cero emisiones.`;
+            } else if (desnivelNeto > 50) {
+                icon = "⛰️";
+                borderColor = "var(--thermal)";
+                veredicto = `<strong>Escalada Dominante:</strong> El viaje ha exigido vencer ${Math.round(ascencionTotal)} metros de desnivel positivo. Esto obliga al motor térmico a asumir la mayor parte de la carga tractora. El consumo de combustible en este trayecto sufrirá una penalización inevitable por pura física.`;
+            } else if (desnivelNeto < -50) {
+                icon = "📉";
+                borderColor = "var(--regen)";
+                veredicto = `<strong>Gravedad a favor:</strong> Descenso pronunciado de ${Math.round(descensoTotal)} metros. Trayecto altamente eficiente. Se ha detectado una gran carga de regeneración de batería. Si hubo un uso intensivo del freno motor ICE, fue para proteger el sistema híbrido de una sobrecarga en la batería.`;
+            } else {
+                icon = "🎢";
+                borderColor = "var(--hybrid)";
+                veredicto = `<strong>Ruta Rompepiernas:</strong> Perfil ondulado con ascensos y descensos compensados (↑${Math.round(ascencionTotal)}m / ↓${Math.round(descensoTotal)}m). El algoritmo del Kona ha tenido que alternar constantemente entre tracción híbrida y regeneración para equilibrar la eficiencia energética.`;
+            }
+
+            panel.innerHTML = `
+                <div class="topo-header">
+                    <div class="topo-icon">${icon}</div>
+                    <div class="topo-title">Veredicto Topográfico</div>
+                </div>
+                <div class="topo-grid">
+                    <div class="topo-metric" style="border-left-color: var(--thermal)">
+                        <div class="topo-val">↑ ${Math.round(ascencionTotal)}<span style="font-size:0.8rem;color:#888;">m</span></div>
+                        <div class="topo-label">Desnivel Positivo</div>
+                    </div>
+                    <div class="topo-metric" style="border-left-color: var(--regen)">
+                        <div class="topo-val">↓ ${Math.round(descensoTotal)}<span style="font-size:0.8rem;color:#888;">m</span></div>
+                        <div class="topo-label">Desnivel Negativo</div>
+                    </div>
+                    <div class="topo-metric" style="border-left-color: var(--hybrid)">
+                        <div class="topo-val">${Math.round(altMaxima)}<span style="font-size:0.8rem;color:#888;">m</span></div>
+                        <div class="topo-label">Altitud Máxima</div>
+                    </div>
+                </div>
+                <div class="topo-ai-verdict" style="border-color: ${borderColor}">
+                    ${veredicto}
                 </div>
             `;
         }
@@ -1540,7 +1703,8 @@
                     const distEv = parseFloat(fila.ev_km) || 0;
                     const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
                     const iceDist = distTotal - distEv;
-                    const tripFuel = iceDist * (5.5 / 100);
+                    // NUEVA LÍNEA: Prioridad máxima a los litros reales guardados
+                    const tripFuel = parseFloat(fila.fuel_liters) || (iceDist * (5.5 / 100));
 
                     let tripDate = new Date(fila.created_at);
                     if (isNaN(tripDate.getTime())) tripDate = new Date();
