@@ -357,6 +357,8 @@
             justify-content: center;
             align-items: center;
             transition: opacity 0.5s ease;
+            overflow: hidden;
+            /* Evita que el glow del HUD sangre fuera del panel */
         }
 
         /* Viñeteado oscuro: funde los bordes cuadrados de la imagen con el fondo negro del panel */
@@ -391,7 +393,7 @@
         }
 
         /* --- REFINAMIENTO DEL ANILLO HUD (Fino y Elegante) --- */
-        /* Contenedor del HUD (Añadimos el Glow) */
+        /* Contenedor del HUD */
         .hud-ring-container {
             position: relative;
             width: 60vmin;
@@ -404,8 +406,8 @@
             margin-bottom: 20px;
             transform: translateY(5vh);
             z-index: 10;
-            /* NUEVO: Doble capa de resplandor holográfico (Glow) */
-            filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.5)) drop-shadow(0 0 30px rgba(0, 255, 136, 0.2));
+            /* Glow contenido: reducimos el radio exterior para que no sangre fuera del splash */
+            filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.4)) drop-shadow(0 0 15px rgba(0, 255, 136, 0.1));
         }
 
         .hud-ring {
@@ -738,6 +740,17 @@
                 <div id="motor-radiography"></div>
             </div>
         </div>
+    </div>
+
+    <!-- Consola de depuración: debe estar ANTES del script para que getElementById funcione -->
+    <button id="debug-console-btn">🐛</button>
+    <div id="debug-console-panel">
+        <div id="debug-console-header">
+            <span>TERMINAL DE DEPURACIÓN</span>
+            <button id="btn-clear-logs"
+                style="background:none; border:1px solid var(--thermal); color:var(--thermal); border-radius:3px; cursor:pointer;">Limpiar</button>
+        </div>
+        <div id="debug-console-logs"></div>
     </div>
 
     <script>
@@ -1590,16 +1603,6 @@
         });
 
     </script>
-
-    <button id="debug-console-btn">🐛</button>
-    <div id="debug-console-panel">
-        <div id="debug-console-header">
-            <span>TERMINAL DE DEPURACIÓN</span>
-            <button id="btn-clear-logs"
-                style="background:none; border:1px solid var(--thermal); color:var(--thermal); border-radius:3px; cursor:pointer;">Limpiar</button>
-        </div>
-        <div id="debug-console-logs"></div>
-    </div>
 </body>
 
 </html>
