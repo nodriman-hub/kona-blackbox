@@ -852,7 +852,7 @@
 
             const grupos = agruparViajes(trips);
 
-            // 1. PRIMERO: Dibujamos toda la interfaz al instante
+            // 1. Renderizado instantáneo de la UI
             for (let i = 0; i < grupos.length; i++) {
                 const group = grupos[i];
                 const groupEl = document.createElement('div');
@@ -861,7 +861,7 @@
                 const header = document.createElement('div');
                 header.className = 'route-header';
                 const headerId = `route-title-${i}`;
-                header.innerHTML = `<span id="${headerId}">📍 Localizando... (${group.trips.length})</span> <span>▼</span>`;
+                header.innerHTML = `<span id="${headerId}">📍 Calculando ruta... (${group.trips.length})</span> <span>▼</span>`;
                 header.onclick = () => groupEl.classList.toggle('active');
 
                 const content = document.createElement('div');
@@ -897,23 +897,72 @@
                 groupEl.appendChild(content);
                 listDiv.appendChild(groupEl);
             }
-
             container.appendChild(listDiv);
 
-            // 2. SEGUNDO: Disparamos la cola de peticiones ordenadas
+            // 2. Ejecutar la cola inteligente de geocodificación
             bautizarRutasOrdenadas(grupos);
         }
 
-        // --- FUNCIÓN DE COLA SECUENCIAL ---
+        // --- SISTEMA GEOESPACIAL PERSISTENTE ---
+
+        // Lee la caché del disco duro del navegador
+        function getCachedCity(lat, lon) {
+            const cache = JSON.parse(localStorage.getItem('kona_geo_cache') || '{}');
+            const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+            return cache[key];
+        }
+
+        // Guarda la nueva ubicación en el disco duro
+        function saveCityToCache(lat, lon, name) {
+            const cache = JSON.parse(localStorage.getItem('kona_geo_cache') || '{}');
+            const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+            cache[key] = name;
+            localStorage.setItem('kona_geo_cache', JSON.stringify(cache));
+        }
+
+        // Función de pausa (Promise-based sleep)
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        // Petición individual a OpenStreetMap con control de errores
+        async function fetchCiudadDeAPI(lat, lon) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                if (res.status === 429) {
+                    console.warn("Límite de la API alcanzado. La app reintentará más tarde.");
+                    return null;
+                }
+                if (!res.ok) return "Zona Desconocida";
+
+                const data = await res.json();
+                const nombre = data.address.city || data.address.town || data.address.village || data.address.municipality || "Ruta Local";
+
+                saveCityToCache(lat, lon, nombre);
+                return nombre;
+            } catch (e) {
+                return "Zona Desconocida";
+            }
+        }
+
+        // --- COLA SECUENCIAL CON ACELERADOR ---
         async function bautizarRutasOrdenadas(grupos) {
-            // Este bucle 'for...of' espera a que acabe una petición antes de lanzar la siguiente
             for (let i = 0; i < grupos.length; i++) {
                 const group = grupos[i];
                 const headerSpan = document.getElementById(`route-title-${i}`);
                 if (!headerSpan) continue;
 
-                const origen = await obtenerNombreCiudad(group.baseStart.lat, group.baseStart.lon);
-                const destino = await obtenerNombreCiudad(group.baseEnd.lat, group.baseEnd.lon);
+                // 1. Resolver Origen
+                let origen = getCachedCity(group.baseStart.lat, group.baseStart.lon);
+                if (!origen) {
+                    await sleep(1500);
+                    origen = await fetchCiudadDeAPI(group.baseStart.lat, group.baseStart.lon) || "Ubicación 1";
+                }
+
+                // 2. Resolver Destino
+                let destino = getCachedCity(group.baseEnd.lat, group.baseEnd.lon);
+                if (!destino) {
+                    await sleep(1500);
+                    destino = await fetchCiudadDeAPI(group.baseEnd.lat, group.baseEnd.lon) || "Ubicación 2";
+                }
 
                 const tituloFinal = origen === destino ? `Ruta por ${origen}` : `${origen} ➔ ${destino}`;
                 headerSpan.innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
@@ -1419,28 +1468,6 @@
             setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 500);
         });
 
-        // --- GEOTAG AUTOMÁTICO (Con Caché y Protección Anti-Bloqueo) ---
-        const cityCache = {};
-
-        async function obtenerNombreCiudad(lat, lon) {
-            // Redondeamos para agrupar coordenadas muy cercanas y usar la memoria
-            const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
-            if (cityCache[key]) return cityCache[key];
-
-            try {
-                // Usamos BigDataCloud, mucho más permisivo para web
-                const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
-                if (!res.ok) return "Zona Desconocida";
-                const data = await res.json();
-
-                // Extraemos la ciudad o localidad
-                const nombre = data.city || data.locality || "Ruta Local";
-                cityCache[key] = nombre;
-                return nombre;
-            } catch (e) {
-                return "Zona Desconocida";
-            }
-        }
     </script>
 </body>
 
