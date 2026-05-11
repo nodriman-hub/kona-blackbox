@@ -382,7 +382,7 @@
             z-index: 10;
         }
 
-        /* El Aura de Energía (Anillo difuminado) */
+        /* El Aura de Energía (Anillo HUD afinado) */
         .hud-ring {
             position: absolute;
             top: 0;
@@ -390,19 +390,15 @@
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            /* Mantenemos el gradiente cónico para los colores... */
-            background: conic-gradient(var(--ev) 0% 65%,
-                    var(--hybrid) 65% 95%,
-                    var(--regen) 95% 100%);
-            /* ...pero aquí aplicamos el difuminado extremo: */
-            opacity: 0.35;
-            /* Lo hacemos muy transparente */
-            filter: blur(15px);
-            /* Desenfocamos los colores para que se mezclen y brillen */
+            background: conic-gradient(var(--ev) 0% 65%, var(--hybrid) 65% 95%, var(--regen) 95% 100%);
 
-            /* La máscara ahora tiene un degradado suave, no un corte duro */
-            -webkit-mask-image: radial-gradient(circle, transparent 40%, black 70%, transparent 100%);
-            mask-image: radial-gradient(circle, transparent 40%, black 70%, transparent 100%);
+            /* Más opacidad y menos borrosidad para efecto Neón */
+            opacity: 0.85;
+            filter: blur(4px);
+
+            /* Máscara ajustada: corta el centro y el exterior para dejar solo un anillo fino */
+            -webkit-mask-image: radial-gradient(circle, transparent 48%, black 51%, black 54%, transparent 58%);
+            mask-image: radial-gradient(circle, transparent 48%, black 51%, black 54%, transparent 58%);
         }
 
         /* Datos en el centro del aura */
@@ -463,6 +459,60 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
+        }
+
+        /* --- RESPONSIVIDAD PARA MÓVILES (PWA) --- */
+        @media (max-width: 768px) {
+            #dashboard {
+                height: auto;
+                /* Permite hacer scroll en todo el contenido */
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .time-tabs {
+                margin-left: 0;
+                flex-wrap: wrap;
+            }
+
+            .grid-layout {
+                flex-direction: column;
+                /* Apila el menú lateral sobre el mapa */
+                overflow-y: visible;
+            }
+
+            .side-panel {
+                width: 100%;
+                /* Ocupa todo el ancho */
+                border-right: none;
+                border-bottom: 2px solid #222;
+                box-sizing: border-box;
+                max-height: 400px;
+                /* Evita que la lista de viajes sea eterna */
+            }
+
+            .main-panel {
+                height: 800px;
+                /* Dale un tamaño fijo alto al mapa y la gráfica para poder navegar */
+                display: flex;
+                flex-direction: column;
+            }
+
+            #motor-radiography {
+                /* En móvil, muestra las métricas de tiempo en 2 columnas en vez de 4 */
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            /* Ajustes del Splash Screen para móvil */
+            .hud-legend {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+            }
         }
     </style>
 </head>
