@@ -544,6 +544,87 @@
                 padding: 15px;
             }
         }
+
+        /* --- CONSOLA DE DEPURACIÓN MÓVIL --- */
+        #debug-console-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--thermal);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            opacity: 0.5;
+            transition: 0.3s;
+        }
+
+        #debug-console-btn:hover {
+            opacity: 1;
+        }
+
+        #debug-console-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            left: 20px;
+            top: 20px;
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid var(--thermal);
+            border-radius: 10px;
+            z-index: 9998;
+            display: none;
+            flex-direction: column;
+            font-family: monospace;
+            font-size: 0.8rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        #debug-console-header {
+            background: #222;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            border-radius: 8px 8px 0 0;
+            color: var(--thermal);
+            font-weight: bold;
+            border-bottom: 1px solid var(--thermal);
+        }
+
+        #debug-console-logs {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            color: #00ff88;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .log-error {
+            color: #ff4444;
+            margin-bottom: 5px;
+            border-left: 2px solid #ff4444;
+            padding-left: 5px;
+        }
+
+        .log-warn {
+            color: #ffaa00;
+            margin-bottom: 5px;
+        }
+
+        .log-info {
+            color: #aaa;
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 
@@ -660,6 +741,46 @@
     </div>
 
     <script>
+        // --- INTERCEPTOR DE CONSOLA (DEBE IR AL PRINCIPIO) ---
+        const logContainer = document.getElementById('debug-console-logs');
+        const debugPanel = document.getElementById('debug-console-panel');
+
+        // Mostrar/Ocultar consola
+        document.getElementById('debug-console-btn').addEventListener('click', () => {
+            debugPanel.style.display = debugPanel.style.display === 'flex' ? 'none' : 'flex';
+        });
+        // Limpiar consola
+        document.getElementById('btn-clear-logs').addEventListener('click', () => logContainer.innerHTML = '');
+
+        function appendToConsole(msg, type) {
+            const div = document.createElement('div');
+            div.className = `log-${type}`;
+            const text = Array.from(msg).map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Guardamos las funciones originales
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        // Sobrescribimos
+        console.log = function (...args) { appendToConsole(args, 'info'); originalLog.apply(console, args); };
+        console.warn = function (...args) { appendToConsole(args, 'warn'); originalWarn.apply(console, args); };
+        console.error = function (...args) { appendToConsole(args, 'error'); originalError.apply(console, args); };
+
+        // Capturar errores fatales no controlados y bloqueos CORS/Red
+        window.onerror = function (message, source, lineno, colno, error) {
+            console.error("ERROR CRÍTICO:", message, "en", source, "Línea:", lineno);
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function (event) {
+            console.error("PROMESA RECHAZADA (Posible fallo de Red/CORS):", event.reason);
+        });
+        // --- FIN DEL INTERCEPTOR ---
+
         // --- CONFIGURACIÓN DEL DRAG & DROP ---
         const dropZone = document.getElementById('drop-zone');
 
@@ -1469,6 +1590,16 @@
         });
 
     </script>
+
+    <button id="debug-console-btn">🐛</button>
+    <div id="debug-console-panel">
+        <div id="debug-console-header">
+            <span>TERMINAL DE DEPURACIÓN</span>
+            <button id="btn-clear-logs"
+                style="background:none; border:1px solid var(--thermal); color:var(--thermal); border-radius:3px; cursor:pointer;">Limpiar</button>
+        </div>
+        <div id="debug-console-logs"></div>
+    </div>
 </body>
 
 </html>
