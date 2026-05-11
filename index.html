@@ -391,6 +391,7 @@
         }
 
         /* --- REFINAMIENTO DEL ANILLO HUD (Fino y Elegante) --- */
+        /* Contenedor del HUD (Añadimos el Glow) */
         .hud-ring-container {
             position: relative;
             width: 60vmin;
@@ -402,8 +403,9 @@
             align-items: center;
             margin-bottom: 20px;
             transform: translateY(5vh);
-            /* Ajuste de posición vertical general */
             z-index: 10;
+            /* NUEVO: Doble capa de resplandor holográfico (Glow) */
+            filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.5)) drop-shadow(0 0 30px rgba(0, 255, 136, 0.2));
         }
 
         .hud-ring {
@@ -424,21 +426,27 @@
             mask-image: radial-gradient(circle, transparent 48%, black 49%, black 51%, transparent 52%);
         }
 
-        /* Datos en el centro del aura */
+        /* Centro de Datos (Definimos los límites para el texto) */
         .hud-data-center {
             position: relative;
             z-index: 20;
             text-align: center;
             text-shadow: 0 4px 15px rgba(0, 0, 0, 1);
-            /* Sombra dura para que el texto sea legible sobre el brillo */
+            /* NUEVO: Limita el ancho al 80% del anillo para que no choque con los bordes */
+            width: 80%; 
+            /* Convierte esta caja en un contenedor de referencia para el tamaño de la fuente */
+            container-type: inline-size;
         }
 
+        /* Texto del Tiempo (Se hace elástico) */
         .hud-time {
             font-family: monospace;
-            font-size: 3.5rem;
             font-weight: bold;
             color: #ffffff;
             line-height: 1;
+            white-space: nowrap; /* Impide que el texto salte a una segunda línea */
+            /* NUEVO: El tamaño de la fuente es dinámico. Mínimo 1.5rem, Máximo 4rem, pero normalmente será el 18% del ancho disponible */
+            font-size: clamp(1.5rem, 18cqi, 4rem); 
         }
 
         .hud-label {
@@ -557,7 +565,7 @@
                 Eléctrico (<span id="leg-ev">65%</span>)
             </div>
             <div class="hud-legend-item">
-                <div class="hud-dot" style="background: var(--hybrid); box-shadow: 0 0 8px var(--hybrid);"></div>
+                <div class="hud-dot" style="background: var(--thermal); box-shadow: 0 0 8px var(--thermal);"></div>
                 Combustión (<span id="leg-ice">30%</span>)
             </div>
             <div class="hud-legend-item">
@@ -1384,7 +1392,7 @@
             const degEv = resumen.ev;
             const degIce = resumen.ev + resumen.ice;
             document.getElementById('splash-hud-ring').style.background =
-                `conic-gradient(var(--ev) 0% ${degEv}%, var(--hybrid) ${degEv}% ${degIce}%, var(--regen) ${degIce}% 100%)`;
+                `conic-gradient(var(--ev) 0% ${degEv}%, var(--thermal) ${degEv}% ${degIce}%, var(--regen) ${degIce}% 100%)`;
         }
 
         // Al cargar la página, recuperar la memoria
