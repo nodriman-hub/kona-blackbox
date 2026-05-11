@@ -768,7 +768,17 @@
         function appendToConsole(msg, type) {
             const div = document.createElement('div');
             div.className = `log-${type}`;
-            const text = Array.from(msg).map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg).join(' ');
+
+            // Destripamos los errores nativos para que no devuelvan {}
+            const text = Array.from(msg).map(arg => {
+                if (arg instanceof Error) return arg.message;
+                if (typeof arg === 'object') {
+                    const str = JSON.stringify(arg, null, 2);
+                    return (str === '{}' && arg.message) ? arg.message : str;
+                }
+                return arg;
+            }).join(' ');
+
             div.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
             logContainer.appendChild(div);
             logContainer.scrollTop = logContainer.scrollHeight;
@@ -1471,8 +1481,10 @@
                     alert("No se encontraron viajes en la nube.");
                 }
             } catch (error) {
-                console.error("Error al descargar de Supabase:", error);
-                alert("Error de conexión. Revisa la consola.");
+                // Forzamos la extracción del mensaje real, sea del tipo que sea
+                const mensajeReal = error.message || error.error_description || error.details || JSON.stringify(error);
+                console.error("Fallo crítico de Supabase:", mensajeReal);
+                alert("Error de enlace: " + mensajeReal);
             } finally {
                 btn.innerHTML = textoOriginal;
                 btn.disabled = false;
