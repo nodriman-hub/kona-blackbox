@@ -374,18 +374,17 @@
         /* Cambio de formato para Móviles (Pantallas menores a 768px) */
         @media (max-width: 768px) {
             #splash-screen {
-                /* Aquí puedes poner una imagen vertical específica si la tienes */
-                /* background-image: url('Gemini_Generated_Image_v1jfa7v1jfa7v1jf.png'); */
-                background-size: contain;
-                /* Para que el coche se vea entero sin recortes */
+                /* Usamos la imagen vertical recomendada */
+                background-image: url('Gemini_Generated_Image_v1jfa7v1jfa7v1jf.png');
+                background-size: cover;
+                /* En móvil vertical, cover suele funcionar mejor si la foto ya es vertical */
                 background-repeat: no-repeat;
-                background-position: center 20%;
-                /* Sube un poco la imagen para dejar espacio abajo */
+                background-position: center center;
             }
 
             .hud-ring-container {
-                transform: translateY(15vh) !important;
-                /* Bajamos el anillo en el móvil para que no tape el coche */
+                /* Subimos el anillo hacia la zona oscura superior de la imagen */
+                transform: translateY(-5vh) !important;
                 width: 85vmin !important;
                 height: 85vmin !important;
             }
@@ -548,7 +547,7 @@
             <div class="hud-data-center">
                 <div class="hud-time" id="splash-time-val">0:00:00</div>
                 <div class="hud-label">Tiempo Conducido</div>
-                <div class="hud-ev-percent"><span id="splash-ev-val">65</span>% HÍBRIDO</div>
+                <div class="hud-ev-percent"><span id="splash-ev-val">65</span>% ELÉCTRICO</div>
             </div>
         </div>
 
