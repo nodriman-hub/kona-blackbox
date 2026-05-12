@@ -768,13 +768,13 @@
             animation: energyFlicker 12s ease-in-out infinite;
         }
 
-        /* --- RESPONSIVIDAD PARA MÓVILES (PWA) --- */
+        /* --- RESPONSIVIDAD PARA MÓVILES (PWA NATIVA & SCROLL SEGURO) --- */
         @media (max-width: 768px) {
             #dashboard {
                 height: auto;
-                /* Permite hacer scroll en todo el contenido */
             }
 
+            /* Permite scroll natural infinito */
             header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -788,35 +788,66 @@
 
             .grid-layout {
                 flex-direction: column;
-                /* Apila el menú sobre el mapa */
-                overflow-y: auto;
+                overflow-y: visible;
             }
 
+            /* 1. Lista de viajes controlada */
             .side-panel {
                 width: 100%;
                 border-right: none;
                 border-bottom: 2px solid #222;
-                max-height: 50vh;
-                /* La lista de viajes no ocupará más de la mitad de la pantalla */
+                max-height: 35vh;
+                /* La lista nunca ocupará más de 1/3 de pantalla */
             }
 
             .main-panel {
-                height: 600px;
-                /* Tamaño suficiente para mapa y gráfica abajo */
+                height: auto;
                 display: flex;
                 flex-direction: column;
             }
 
-            #motor-radiography {
-                grid-template-columns: repeat(2, 1fr);
-                /* 2 columnas en lugar de 4 en el móvil */
+            /* 2. Mapa controlado */
+            #map {
+                height: 45vh !important;
+                min-height: 45vh;
             }
 
-            /* Ajustes del Splash Screen para móvil */
+            /* 3. Carruseles Deslizables para ahorrar espacio vertical */
+            #motor-radiography,
+            .topo-grid {
+                display: flex !important;
+                flex-direction: row;
+                overflow-x: auto;
+                scroll-snap-type: x mandatory;
+                gap: 12px;
+                padding: 10px 0;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Ocultar barra de scroll para estética limpia */
+            #motor-radiography::-webkit-scrollbar,
+            .topo-grid::-webkit-scrollbar {
+                display: none;
+            }
+
+            .motor-stat,
+            .topo-metric {
+                min-width: 160px;
+                /* Tarjetas anchas para que se lea todo */
+                scroll-snap-align: start;
+                flex-shrink: 0;
+            }
+
             .hud-legend {
                 flex-direction: column;
                 gap: 10px;
                 padding: 15px;
+            }
+
+            .hud-ring-container {
+                transform: translateY(-5vh) !important;
+                width: 85vmin !important;
+                height: 85vmin !important;
             }
         }
 
@@ -1627,6 +1658,14 @@
 
             // 3. Veredicto Topográfico
             renderizarVeredictoTopografico(trip);
+
+            // 4. Auto-Scroll en móviles: Salto automático a la gráfica
+            if (window.innerWidth <= 768) {
+                const chartElement = document.getElementById('charts');
+                if (chartElement) {
+                    chartElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
         }
 
         function actualizarGraficaForense(trip) {
