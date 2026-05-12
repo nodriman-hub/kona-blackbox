@@ -497,24 +497,29 @@
             border-radius: 50%;
         }
 
-        /* --- RESPONSIVIDAD MÓVIL PREMIUM (CORRECCIÓN DE SCROLL) --- */
+        /* --- RESPONSIVIDAD MÓVIL PREMIUM (CORRECCIÓN DE SCROLL DEFINITIVA) --- */
         @media (max-width: 768px) {
+            #dashboard {
+                height: 100dvh;
+                /* dvh evita problemas con la barra de Chrome/Safari */
+                overflow: hidden;
+            }
+
             .grid-layout {
                 display: block;
                 position: relative;
-                height: 100vh;
+                height: calc(100dvh - 90px);
+                /* Ocupa el resto de la pantalla bajo la cabecera */
                 overflow: hidden;
-                /* Bloquea el scroll general de la página web... */
             }
 
             .main-panel {
-                height: 100vh;
+                height: 100%;
                 width: 100%;
-                /* 👇 ESTA ES LA CLAVE 👇 */
                 overflow-y: auto;
-                /* Habilita el scroll independiente en esta capa */
-                padding-bottom: 55vh;
-                /* Deja un espacio vacío al final para que los datos suban por encima de la tarjeta */
+                /* Aquí reside el scroll maestro */
+                padding-bottom: 60vh;
+                /* Libera el espacio atrapado bajo la tarjeta */
                 box-sizing: border-box;
                 display: flex;
                 flex-direction: column;
@@ -522,9 +527,8 @@
             }
 
             #map {
-                height: 50vh !important;
-                /* El mapa ocupa la mitad superior visible */
-                min-height: 50vh;
+                height: 45vh !important;
+                min-height: 45vh;
                 flex: none;
             }
 
@@ -535,7 +539,7 @@
                 left: 0;
                 width: 100%;
                 height: 45vh;
-                background: rgba(10, 10, 12, 0.75);
+                background: rgba(10, 10, 12, 0.85);
                 backdrop-filter: blur(15px);
                 -webkit-backdrop-filter: blur(15px);
                 border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -569,7 +573,7 @@
                 -webkit-overflow-scrolling: touch;
             }
 
-            /* Ocultar la barra de desplazamiento fea en Android/iOS */
+            /* Ocultar la barra de desplazamiento en Android/iOS */
             .topo-grid::-webkit-scrollbar,
             #motor-radiography::-webkit-scrollbar {
                 display: none;
@@ -588,7 +592,7 @@
                 height: 85vmin !important;
             }
 
-            /* Ajustes del Splash Screen para móvil */
+            /* Ajustes del Splash y Cabecera para móvil */
             .hud-legend {
                 flex-direction: column;
                 gap: 10px;
@@ -1285,7 +1289,7 @@
             // Auto-scroll en móviles: baja la pantalla para mostrar la telemetría
             if (window.innerWidth <= 768) {
                 const mainPanel = document.querySelector('.main-panel');
-                const chartElement = document.getElementById('chart-container');
+                const chartElement = document.getElementById('charts'); // <-- ¡AQUÍ ESTABA EL ERROR!
                 if (mainPanel && chartElement) {
                     mainPanel.scrollTo({ top: chartElement.offsetTop, behavior: 'smooth' });
                 }
