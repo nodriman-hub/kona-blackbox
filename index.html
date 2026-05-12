@@ -497,106 +497,11 @@
             border-radius: 50%;
         }
 
-        /* --- RESPONSIVIDAD MÓVIL PREMIUM (CORRECCIÓN DE SCROLL DEFINITIVA) --- */
+        /* --- RESPONSIVIDAD PARA MÓVILES (PWA) --- */
         @media (max-width: 768px) {
             #dashboard {
-                height: 100dvh;
-                /* dvh evita problemas con la barra de Chrome/Safari */
-                overflow: hidden;
-            }
-
-            .grid-layout {
-                display: block;
-                position: relative;
-                height: calc(100dvh - 90px);
-                /* Ocupa el resto de la pantalla bajo la cabecera */
-                overflow: hidden;
-            }
-
-            .main-panel {
-                height: 100%;
-                width: 100%;
-                overflow-y: auto;
-                /* Aquí reside el scroll maestro */
-                padding-bottom: 60vh;
-                /* Libera el espacio atrapado bajo la tarjeta */
-                box-sizing: border-box;
-                display: flex;
-                flex-direction: column;
-                scroll-behavior: smooth;
-            }
-
-            #map {
-                height: 45vh !important;
-                min-height: 45vh;
-                flex: none;
-            }
-
-            /* Tarjeta Inferior de Rutas */
-            .side-panel {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                width: 100%;
-                height: 45vh;
-                background: rgba(10, 10, 12, 0.85);
-                backdrop-filter: blur(15px);
-                -webkit-backdrop-filter: blur(15px);
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 20px 20px 0 0;
-                padding-top: 10px;
-                z-index: 1000;
-                overflow-y: auto;
-                box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
-            }
-
-            /* La píldora gris del tirador */
-            .side-panel::before {
-                content: '';
-                display: block;
-                width: 40px;
-                height: 4px;
-                background: #555;
-                border-radius: 2px;
-                margin: 0 auto 15px auto;
-            }
-
-            /* Carruseles Horizontales Deslizables */
-            .topo-grid,
-            #motor-radiography {
-                display: flex !important;
-                flex-direction: row;
-                overflow-x: auto;
-                scroll-snap-type: x mandatory;
-                gap: 12px;
-                padding-bottom: 10px;
-                -webkit-overflow-scrolling: touch;
-            }
-
-            /* Ocultar la barra de desplazamiento en Android/iOS */
-            .topo-grid::-webkit-scrollbar,
-            #motor-radiography::-webkit-scrollbar {
-                display: none;
-            }
-
-            .topo-metric,
-            .stat-card {
-                min-width: 140px;
-                scroll-snap-align: start;
-                flex-shrink: 0;
-            }
-
-            .hud-ring-container {
-                transform: translateY(-5vh) !important;
-                width: 85vmin !important;
-                height: 85vmin !important;
-            }
-
-            /* Ajustes del Splash y Cabecera para móvil */
-            .hud-legend {
-                flex-direction: column;
-                gap: 10px;
-                padding: 15px;
+                height: auto;
+                /* Permite hacer scroll en todo el contenido */
             }
 
             header {
@@ -608,6 +513,39 @@
             .time-tabs {
                 margin-left: 0;
                 flex-wrap: wrap;
+            }
+
+            .grid-layout {
+                flex-direction: column;
+                /* Apila el menú sobre el mapa */
+                overflow-y: auto;
+            }
+
+            .side-panel {
+                width: 100%;
+                border-right: none;
+                border-bottom: 2px solid #222;
+                max-height: 50vh;
+                /* La lista de viajes no ocupará más de la mitad de la pantalla */
+            }
+
+            .main-panel {
+                height: 600px;
+                /* Tamaño suficiente para mapa y gráfica abajo */
+                display: flex;
+                flex-direction: column;
+            }
+
+            #motor-radiography {
+                grid-template-columns: repeat(2, 1fr);
+                /* 2 columnas en lugar de 4 en el móvil */
+            }
+
+            /* Ajustes del Splash Screen para móvil */
+            .hud-legend {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
             }
         }
 
@@ -762,6 +700,12 @@
             font-size: 0.85rem;
             color: #ddd;
             line-height: 1.5;
+        }
+
+        @media (max-width: 768px) {
+            .topo-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -1285,15 +1229,6 @@
 
             // 3. Veredicto Topográfico
             renderizarVeredictoTopografico(trip);
-
-            // Auto-scroll en móviles: baja la pantalla para mostrar la telemetría
-            if (window.innerWidth <= 768) {
-                const mainPanel = document.querySelector('.main-panel');
-                const chartElement = document.getElementById('charts'); // <-- ¡AQUÍ ESTABA EL ERROR!
-                if (mainPanel && chartElement) {
-                    mainPanel.scrollTo({ top: chartElement.offsetTop, behavior: 'smooth' });
-                }
-            }
         }
 
         function actualizarGraficaForense(trip) {
@@ -1494,31 +1429,24 @@
             let veredicto = "";
             let borderColor = "";
             let icon = "";
-
             const desnivelNeto = ascencionTotal - descensoTotal;
-
-            // FÍSICA KONA HEV (~1550kg con pasajeros)
-            // Subir 100m requiere ~1.5 MJ de energía mecánica. Con eficiencia térmica del 38%, son ~0.12 Litros.
-            const litrosExtra = (ascencionTotal / 100) * 0.12;
-            // Bajar 100m recupera ~0.9 MJ (0.25 kWh) con eficiencia de regeneración del 60%.
-            const kwhGratis = (descensoTotal / 100) * 0.25;
 
             if (ascencionTotal < 30 && descensoTotal < 30) {
                 icon = "🛣️";
                 borderColor = "var(--ev)";
-                veredicto = `<strong>Terreno Plano:</strong> Sin penalizaciones. El consumo de combustible en este trayecto depende única y exclusivamente de la presión sobre el acelerador.`;
+                veredicto = `<strong>Terreno Llano (Ecosistema EV):</strong> Ruta sin exigencias topográficas. Las condiciones fueron ideales para maximizar la autonomía de la batería, permitiendo un alto porcentaje de rodaje en cero emisiones.`;
             } else if (desnivelNeto > 50) {
                 icon = "⛰️";
                 borderColor = "var(--thermal)";
-                veredicto = `<strong>Penalización por Escalada:</strong> Vencer la gravedad en este trayecto te ha costado aproximadamente <strong>+${litrosExtra.toFixed(2)} Litros</strong> extra de gasolina, independientemente de tu estilo de conducción.`;
+                veredicto = `<strong>Escalada Dominante:</strong> El viaje ha exigido vencer ${Math.round(ascencionTotal)} metros de desnivel positivo. Esto obliga al motor térmico a asumir la mayor parte de la carga tractora. El consumo de combustible en este trayecto sufrirá una penalización inevitable por pura física.`;
             } else if (desnivelNeto < -50) {
                 icon = "📉";
                 borderColor = "var(--regen)";
-                veredicto = `<strong>Gravedad a Favor:</strong> El descenso ha actuado como generador, inyectando unos <strong>+${kwhGratis.toFixed(2)} kWh</strong> de energía gratuita en la batería gracias a la inercia retenida.`;
+                veredicto = `<strong>Gravedad a favor:</strong> Descenso pronunciado de ${Math.round(descensoTotal)} metros. Trayecto altamente eficiente. Se ha detectado una gran carga de regeneración de batería. Si hubo un uso intensivo del freno motor ICE, fue para proteger el sistema híbrido de una sobrecarga en la batería.`;
             } else {
                 icon = "🎢";
                 borderColor = "var(--hybrid)";
-                veredicto = `<strong>Ruta Rompepiernas:</strong> El coste de escalar (${litrosExtra.toFixed(2)} L extra) ha sido parcialmente amortiguado por la regeneración en las bajadas (recuperando ${kwhGratis.toFixed(2)} kWh). Alta exigencia para el sistema híbrido.`;
+                veredicto = `<strong>Ruta Rompepiernas:</strong> Perfil ondulado con ascensos y descensos compensados (↑${Math.round(ascencionTotal)}m / ↓${Math.round(descensoTotal)}m). El algoritmo del Kona ha tenido que alternar constantemente entre tracción híbrida y regeneración para equilibrar la eficiencia energética.`;
             }
 
             panel.innerHTML = `
