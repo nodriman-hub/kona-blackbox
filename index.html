@@ -3,6 +3,11 @@
 
 <head>
     <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Sora:wght@200;300;400&display=swap"
+        rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kona BlackBox - Centro Forense</title>
     <meta name="theme-color" content="#000000">
@@ -341,7 +346,18 @@
             font-weight: bold;
         }
 
-        /* --- CONFIGURACIÓN DE FONDOS POR DISPOSITIVO --- */
+        /* ═══════════════════════════════════════════════════════
+           CINEMATIC INSTRUMENT CLUSTER — PREMIUM HUD SYSTEM
+           ═══════════════════════════════════════════════════════ */
+
+        /* --- Google Fonts override for HUD --- */
+        .hud-ring-container,
+        .hud-data-center,
+        .hud-legend {
+            font-family: 'Space Grotesk', 'Sora', system-ui, sans-serif;
+        }
+
+        /* ── SPLASH SCREEN BASE ── */
         #splash-screen {
             position: fixed;
             top: 0;
@@ -358,127 +374,313 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.8s ease;
             overflow: hidden;
-            /* Evita que el glow del HUD sangre fuera del panel */
         }
 
-        /* Viñeteado oscuro: funde los bordes cuadrados de la imagen con el fondo negro del panel */
+        /* Deep vignette — blends image edges into pure black */
         #splash-screen::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at center, rgba(0, 0, 0, 0.1) 40%, rgba(0, 0, 0, 0.95) 80%);
+            inset: 0;
+            background: radial-gradient(ellipse at center,
+                    rgba(4, 7, 13, 0.05) 0%,
+                    rgba(4, 7, 13, 0.55) 55%,
+                    rgba(4, 7, 13, 0.96) 85%,
+                    #04070D 100%);
             z-index: 0;
         }
 
-        /* Cambio de formato para Móviles (Pantallas menores a 768px) */
+        /* Ambient floor glow — subtle upward light bleed */
+        #splash-screen::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 35%;
+            background: radial-gradient(ellipse at 50% 100%,
+                    rgba(0, 255, 136, 0.04) 0%,
+                    rgba(0, 180, 255, 0.02) 50%,
+                    transparent 80%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* ── MOBILE LAYOUT ── */
         @media (max-width: 768px) {
             #splash-screen {
-                /* Usamos la imagen vertical recomendada */
                 background-image: url('Gemini_Generated_Image_v1jfa7v1jfa7v1jf.png');
                 background-size: cover;
-                /* En móvil vertical, cover suele funcionar mejor si la foto ya es vertical */
                 background-repeat: no-repeat;
                 background-position: center center;
             }
 
             .hud-ring-container {
-                /* Subimos el anillo hacia la zona oscura superior de la imagen */
                 transform: translateY(-5vh) !important;
-                width: 85vmin !important;
-                height: 85vmin !important;
+                width: 88vmin !important;
+                height: 88vmin !important;
             }
         }
 
-        /* --- REFINAMIENTO DEL ANILLO HUD (Fino y Elegante) --- */
-        /* Contenedor del HUD */
+        /* ═══════════════════════════════════════
+           HUD CONTAINER — 5-layer cluster
+           ═══════════════════════════════════════ */
         .hud-ring-container {
             position: relative;
-            width: 60vmin;
-            max-width: 450px;
-            height: 60vmin;
-            max-height: 450px;
+            width: 62vmin;
+            max-width: 480px;
+            height: 62vmin;
+            max-height: 480px;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 20px;
-            transform: translateY(5vh);
+            margin-bottom: 24px;
+            transform: translateY(4vh);
             z-index: 10;
-            /* Glow contenido: reducimos el radio exterior para que no sangre fuera del splash */
-            filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.4)) drop-shadow(0 0 15px rgba(0, 255, 136, 0.1));
         }
 
-        .hud-ring {
+        /* ── LAYER 1: Atmospheric halo ── */
+        .hud-layer-halo {
             position: absolute;
-            top: 0;
-            left: 0;
+            inset: -22%;
+            border-radius: 50%;
+            background: radial-gradient(circle,
+                    rgba(0, 255, 160, 0.055) 0%,
+                    rgba(0, 210, 255, 0.03) 40%,
+                    transparent 70%);
+            animation: haloBreath 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes haloBreath {
+
+            0%,
+            100% {
+                opacity: 0.7;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.04);
+            }
+        }
+
+        /* ── LAYER 2: Main energy ring (SVG-driven) ── */
+        .hud-svg-main {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
-            border-radius: 50%;
-            background: conic-gradient(var(--ev) 0% 65%, var(--hybrid) 65% 95%, var(--regen) 95% 100%);
-
-            opacity: 0.95;
-            filter: blur(1.5px);
-            /* Desenfoque sutil, ya no es una esfera borrosa */
-
-            /* Máscara de anillo muy fino (solo el 2-3% de grosor) */
-            -webkit-mask-image: radial-gradient(circle, transparent 48%, black 49%, black 51%, transparent 52%);
-            mask-image: radial-gradient(circle, transparent 48%, black 49%, black 51%, transparent 52%);
+            z-index: 3;
+            overflow: visible;
         }
 
-        /* Centro de Datos (Definimos los límites para el texto) */
+        /* Energy ring sweep animation */
+        @keyframes energySweep {
+            0% {
+                stroke-dashoffset: 0;
+            }
+
+            100% {
+                stroke-dashoffset: -12;
+            }
+        }
+
+        /* Breathing glow on main ring */
+        @keyframes ringGlow {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.55)) drop-shadow(0 0 18px rgba(0, 255, 136, 0.18));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.85)) drop-shadow(0 0 30px rgba(0, 255, 136, 0.28));
+            }
+        }
+
+        .hud-ring-main-group {
+            animation: ringGlow 5s ease-in-out infinite;
+        }
+
+        /* ── LAYER 3: Segmented technical ring ── */
+        .hud-svg-segments {
+            position: absolute;
+            inset: -4%;
+            width: 108%;
+            height: 108%;
+            z-index: 4;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        /* Slow scan sweep */
+        @keyframes scanSweep {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hud-scan-group {
+            transform-origin: center;
+            animation: scanSweep 20s linear infinite;
+        }
+
+        /* ── LAYER 4: Inner rotating ring ── */
+        .hud-svg-inner {
+            position: absolute;
+            inset: 14%;
+            width: 72%;
+            height: 72%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes innerRotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hud-inner-ring {
+            transform-origin: center;
+            animation: innerRotate 45s linear infinite;
+        }
+
+        /* ── LAYER 5: Orbital particles (canvas) ── */
+        #hud-particles {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        /* ── CENTER DATA AREA ── */
         .hud-data-center {
             position: relative;
             z-index: 20;
             text-align: center;
-            text-shadow: 0 4px 15px rgba(0, 0, 0, 1);
-            /* NUEVO: Limita el ancho al 80% del anillo para que no choque con los bordes */
-            width: 80%;
-            /* Convierte esta caja en un contenedor de referencia para el tamaño de la fuente */
+            width: 52%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
             container-type: inline-size;
         }
 
-        /* Texto del Tiempo (Se hace elástico) */
+        /* Central vehicle silhouette */
+        .hud-center-graphic {
+            position: absolute;
+            inset: 20%;
+            z-index: 6;
+            pointer-events: none;
+            opacity: 0.07;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hud-center-graphic svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Topographic lines animation */
+        @keyframes topoFade {
+
+            0%,
+            100% {
+                opacity: 0.07;
+            }
+
+            50% {
+                opacity: 0.13;
+            }
+        }
+
+        .hud-center-graphic {
+            animation: topoFade 7s ease-in-out infinite;
+        }
+
+        /* Time readout — monumental */
         .hud-time {
-            font-family: monospace;
-            font-weight: bold;
+            font-family: 'Space Grotesk', monospace;
+            font-weight: 300;
+            font-size: clamp(1.4rem, 16cqi, 3.6rem);
             color: #ffffff;
             line-height: 1;
             white-space: nowrap;
-            /* Impide que el texto salte a una segunda línea */
-            /* NUEVO: El tamaño de la fuente es dinámico. Mínimo 1.5rem, Máximo 4rem, pero normalmente será el 18% del ancho disponible */
-            font-size: clamp(1.5rem, 18cqi, 4rem);
+            letter-spacing: 0.05em;
+            text-shadow:
+                0 0 20px rgba(255, 255, 255, 0.15),
+                0 2px 12px rgba(0, 0, 0, 0.9);
         }
 
         .hud-label {
-            font-size: 0.8rem;
-            color: #aaaaaa;
-            letter-spacing: 2px;
-            margin-top: 5px;
+            font-family: 'Sora', 'Space Grotesk', sans-serif;
+            font-size: 0.58rem;
+            font-weight: 300;
+            color: rgba(180, 200, 220, 0.6);
+            letter-spacing: 0.28em;
+            margin-top: 6px;
             text-transform: uppercase;
         }
 
         .hud-ev-percent {
-            color: var(--ev);
-            font-weight: bold;
-            font-size: 1.2rem;
-            margin-top: 15px;
-            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            font-size: clamp(0.9rem, 10cqi, 1.4rem);
+            color: #00ffaa;
+            margin-top: 12px;
+            letter-spacing: 0.12em;
+            text-shadow: 0 0 16px rgba(0, 255, 160, 0.5);
         }
 
-        /* Leyenda inferior flotante */
+        .hud-ev-label {
+            font-family: 'Sora', sans-serif;
+            font-size: 0.52rem;
+            font-weight: 300;
+            color: rgba(0, 255, 160, 0.45);
+            letter-spacing: 0.3em;
+            margin-top: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Divider line */
+        .hud-divider {
+            width: 40%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.3), transparent);
+            margin: 9px auto;
+        }
+
+        /* ── LEGEND BAR ── */
         .hud-legend {
             display: flex;
-            gap: 20px;
-            background: rgba(10, 10, 12, 0.4);
-            backdrop-filter: blur(10px);
-            padding: 15px 25px;
-            border-radius: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            gap: 18px;
+            background: rgba(4, 7, 13, 0.55);
+            backdrop-filter: blur(12px) saturate(1.4);
+            -webkit-backdrop-filter: blur(12px) saturate(1.4);
+            padding: 14px 28px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow:
+                0 0 0 1px rgba(0, 255, 136, 0.04) inset,
+                0 8px 32px rgba(0, 0, 0, 0.6);
             z-index: 10;
         }
 
@@ -486,15 +688,84 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 0.85rem;
-            color: #ddd;
-            font-weight: bold;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 400;
+            color: rgba(210, 220, 230, 0.75);
+            letter-spacing: 0.06em;
+        }
+
+        .hud-legend-item span {
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .hud-dot {
-            width: 10px;
-            height: 10px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
+        }
+
+        /* ── LAUNCH BUTTON ── */
+        #btn-sync-splash {
+            margin-top: 36px;
+            background: rgba(0, 212, 255, 0.06);
+            color: rgba(0, 212, 255, 0.85);
+            border: 1px solid rgba(0, 212, 255, 0.22);
+            padding: 13px 36px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 400;
+            font-size: 0.78rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            backdrop-filter: blur(8px);
+            transition: all 0.4s ease;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 0 24px rgba(0, 212, 255, 0.06);
+        }
+
+        #btn-sync-splash:hover {
+            background: rgba(0, 212, 255, 0.12);
+            border-color: rgba(0, 212, 255, 0.45);
+            box-shadow: 0 0 32px rgba(0, 212, 255, 0.15);
+            color: rgba(0, 212, 255, 1);
+            transform: translateY(-1px);
+        }
+
+        /* ── ENERGY FLUCTUATION keyframe ── */
+        @keyframes energyFlicker {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            92% {
+                opacity: 1;
+            }
+
+            93% {
+                opacity: 0.8;
+            }
+
+            94% {
+                opacity: 1;
+            }
+
+            97% {
+                opacity: 0.9;
+            }
+
+            98% {
+                opacity: 1;
+            }
+        }
+
+        .hud-ring-container {
+            animation: energyFlicker 12s ease-in-out infinite;
         }
 
         /* --- RESPONSIVIDAD PARA MÓVILES (PWA) --- */
@@ -714,33 +985,160 @@
 
     <div id="splash-screen">
         <div class="hud-ring-container">
-            <div class="hud-ring" id="splash-hud-ring"></div>
 
+            <!-- LAYER 1: Atmospheric halo -->
+            <div class="hud-layer-halo"></div>
+
+            <!-- LAYER 5: Orbital particles canvas (behind main ring visually) -->
+            <canvas id="hud-particles"></canvas>
+
+            <!-- LAYER 2: Main energy ring — SVG conic arcs -->
+            <svg class="hud-svg-main" viewBox="0 0 200 200" id="hud-svg-energy">
+                <defs>
+                    <filter id="glow-ev">
+                        <feGaussianBlur stdDeviation="2.2" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter id="glow-regen">
+                        <feGaussianBlur stdDeviation="1.8" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter id="glow-thermal">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+                <g class="hud-ring-main-group">
+                    <!-- EV arc (neon green) — filled by JS -->
+                    <circle id="arc-ev" cx="100" cy="100" r="88" fill="none" stroke="#00ffaa" stroke-width="7"
+                        stroke-linecap="round" stroke-dasharray="0 553" stroke-dashoffset="138" filter="url(#glow-ev)"
+                        opacity="0.92" style="transition: stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1);" />
+                    <!-- Regen arc (cyan) -->
+                    <circle id="arc-regen" cx="100" cy="100" r="88" fill="none" stroke="#00d4ff" stroke-width="5"
+                        stroke-linecap="round" stroke-dasharray="0 553" stroke-dashoffset="138"
+                        filter="url(#glow-regen)" opacity="0.85"
+                        style="transition: stroke-dasharray 1.4s cubic-bezier(0.4,0,0.2,1);" />
+                    <!-- Thermal arc (purple-warm) -->
+                    <circle id="arc-thermal" cx="100" cy="100" r="88" fill="none" stroke="#9b5de5" stroke-width="4.5"
+                        stroke-linecap="round" stroke-dasharray="0 553" stroke-dashoffset="138"
+                        filter="url(#glow-thermal)" opacity="0.7"
+                        style="transition: stroke-dasharray 1.6s cubic-bezier(0.4,0,0.2,1);" />
+                    <!-- Base track ring -->
+                    <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="7" />
+                    <!-- Luminosity variation blobs (irregular brightness) -->
+                    <circle id="arc-lum1" cx="100" cy="100" r="88" fill="none" stroke="rgba(0,255,160,0.18)"
+                        stroke-width="11" stroke-linecap="round" stroke-dasharray="30 523" stroke-dashoffset="80"
+                        opacity="0.6" />
+                    <circle id="arc-lum2" cx="100" cy="100" r="88" fill="none" stroke="rgba(0,200,255,0.12)"
+                        stroke-width="9" stroke-linecap="round" stroke-dasharray="18 535" stroke-dashoffset="250"
+                        opacity="0.5" />
+                </g>
+            </svg>
+
+            <!-- LAYER 3: Technical segmented ring (aerospace/radar) -->
+            <svg class="hud-svg-segments" viewBox="0 0 220 220">
+                <defs>
+                    <filter id="seg-blur">
+                        <feGaussianBlur stdDeviation="0.4" />
+                    </filter>
+                </defs>
+                <!-- Outer dashed technical ring -->
+                <circle cx="110" cy="110" r="104" fill="none" stroke="rgba(0,212,255,0.3)" stroke-width="0.8"
+                    stroke-dasharray="2 6" filter="url(#seg-blur)" />
+                <!-- Major tick marks (every 30°) -->
+                <g id="hud-ticks" stroke="rgba(0,212,255,0.55)" stroke-width="1.2" stroke-linecap="round"></g>
+                <!-- Minor tick marks (every 10°) -->
+                <g id="hud-ticks-minor" stroke="rgba(0,212,255,0.2)" stroke-width="0.6" stroke-linecap="round"></g>
+                <!-- Scanning sweep arc -->
+                <g class="hud-scan-group">
+                    <path d="M110,110 L110,6 A104,104 0 0,1 179,37 Z" fill="url(#scan-grad)" opacity="0.06" />
+                    <defs>
+                        <radialGradient id="scan-grad" cx="0%" cy="0%">
+                            <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.5" />
+                            <stop offset="100%" stop-color="#00d4ff" stop-opacity="0" />
+                        </radialGradient>
+                    </defs>
+                </g>
+                <!-- Partial gap arc (precision instrument look) -->
+                <circle cx="110" cy="110" r="99" fill="none" stroke="rgba(0,255,136,0.12)" stroke-width="0.6"
+                    stroke-dasharray="60 600" stroke-dashoffset="0" />
+            </svg>
+
+            <!-- LAYER 4: Inner rotating ring -->
+            <svg class="hud-svg-inner" viewBox="0 0 100 100">
+                <g class="hud-inner-ring">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,212,255,0.12)" stroke-width="0.6"
+                        stroke-dasharray="4 8" />
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,255,136,0.08)" stroke-width="0.4"
+                        stroke-dasharray="1.5 12" />
+                    <!-- Inner cardinal marks -->
+                    <line x1="50" y1="4" x2="50" y2="9" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                    <line x1="96" y1="50" x2="91" y2="50" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                    <line x1="50" y1="96" x2="50" y2="91" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                    <line x1="4" y1="50" x2="9" y2="50" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                </g>
+            </svg>
+
+            <!-- Center vehicle silhouette (subtle) -->
+            <div class="hud-center-graphic">
+                <!-- Abstract hybrid power-flow / topographic rings -->
+                <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Topographic contour lines -->
+                    <ellipse cx="60" cy="40" rx="56" ry="34" stroke="rgba(0,255,136,0.9)" stroke-width="0.5" />
+                    <ellipse cx="60" cy="40" rx="44" ry="26" stroke="rgba(0,255,136,0.8)" stroke-width="0.4" />
+                    <ellipse cx="60" cy="40" rx="32" ry="18" stroke="rgba(0,212,255,0.8)" stroke-width="0.4" />
+                    <ellipse cx="60" cy="40" rx="20" ry="11" stroke="rgba(0,212,255,0.7)" stroke-width="0.4" />
+                    <ellipse cx="60" cy="40" rx="10" ry="5" stroke="rgba(155,93,229,0.7)" stroke-width="0.4" />
+                    <!-- Kona silhouette outline (simplified) -->
+                    <path
+                        d="M18,50 C20,42 30,32 42,30 L54,27 C57,26 63,26 66,27 L78,30 C90,32 100,42 102,50 L104,55 L16,55 Z"
+                        stroke="rgba(255,255,255,0.7)" stroke-width="0.6" fill="rgba(0,20,40,0.2)" />
+                    <path d="M38,30 C42,20 52,18 60,18 C68,18 78,20 82,30" stroke="rgba(255,255,255,0.5)"
+                        stroke-width="0.5" />
+                    <!-- Wheels -->
+                    <circle cx="32" cy="55" r="7" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                    <circle cx="88" cy="55" r="7" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                </svg>
+            </div>
+
+            <!-- CENTER DATA -->
             <div class="hud-data-center">
                 <div class="hud-time" id="splash-time-val">0:00:00</div>
+                <div class="hud-divider"></div>
                 <div class="hud-label">Tiempo Conducido</div>
-                <div class="hud-ev-percent"><span id="splash-ev-val">65</span>% ELÉCTRICO</div>
+                <div class="hud-ev-percent"><span id="splash-ev-val">65</span>%</div>
+                <div class="hud-ev-label">Modo Eléctrico</div>
             </div>
-        </div>
 
+        </div><!-- end hud-ring-container -->
+
+        <!-- Legend bar -->
         <div class="hud-legend">
             <div class="hud-legend-item">
-                <div class="hud-dot" style="background: var(--ev); box-shadow: 0 0 8px var(--ev);"></div>
-                Eléctrico (<span id="leg-ev">65%</span>)
+                <div class="hud-dot" style="background:#00ffaa; box-shadow: 0 0 6px #00ffaa;"></div>
+                Eléctrico <span id="leg-ev">65%</span>
             </div>
             <div class="hud-legend-item">
-                <div class="hud-dot" style="background: var(--thermal); box-shadow: 0 0 8px var(--thermal);"></div>
-                Combustión (<span id="leg-ice">30%</span>)
+                <div class="hud-dot" style="background:#9b5de5; box-shadow: 0 0 6px #9b5de5;"></div>
+                Combustión <span id="leg-ice">30%</span>
             </div>
             <div class="hud-legend-item">
-                <div class="hud-dot" style="background: var(--regen); box-shadow: 0 0 8px var(--regen);"></div>
-                Regeneración (<span id="leg-regen">5%</span>)
+                <div class="hud-dot" style="background:#00d4ff; box-shadow: 0 0 6px #00d4ff;"></div>
+                Regeneración <span id="leg-regen">5%</span>
             </div>
         </div>
 
-        <button id="btn-sync-splash"
-            style="margin-top: 40px; background: rgba(0, 212, 255, 0.1); color: var(--hybrid); border: 1px solid var(--hybrid); padding: 12px 30px; border-radius: 25px; cursor: pointer; font-weight: bold; letter-spacing: 1px; backdrop-filter: blur(5px); transition: 0.3s;">
-            [ INICIAR ENLACE SATELITAL ]
+        <button id="btn-sync-splash">
+            Iniciar Enlace Satelital
         </button>
     </div>
 
@@ -1431,22 +1829,26 @@
             let icon = "";
             const desnivelNeto = ascencionTotal - descensoTotal;
 
+            // --- FÍSICA KONA HEV (~1550kg con pasajeros) ---
+            const litrosExtra = (ascencionTotal / 100) * 0.12;
+            const kwhGratis = (descensoTotal / 100) * 0.25;
+
             if (ascencionTotal < 30 && descensoTotal < 30) {
                 icon = "🛣️";
                 borderColor = "var(--ev)";
-                veredicto = `<strong>Terreno Llano (Ecosistema EV):</strong> Ruta sin exigencias topográficas. Las condiciones fueron ideales para maximizar la autonomía de la batería, permitiendo un alto porcentaje de rodaje en cero emisiones.`;
+                veredicto = `<strong>Terreno Plano:</strong> Sin penalizaciones. El consumo de combustible en este trayecto depende única y exclusivamente de la presión sobre el acelerador.`;
             } else if (desnivelNeto > 50) {
                 icon = "⛰️";
                 borderColor = "var(--thermal)";
-                veredicto = `<strong>Escalada Dominante:</strong> El viaje ha exigido vencer ${Math.round(ascencionTotal)} metros de desnivel positivo. Esto obliga al motor térmico a asumir la mayor parte de la carga tractora. El consumo de combustible en este trayecto sufrirá una penalización inevitable por pura física.`;
+                veredicto = `<strong>Penalización por Escalada:</strong> Vencer la gravedad te ha costado aproximadamente <strong>+${litrosExtra.toFixed(2)} Litros</strong> extra de gasolina, independientemente de tu estilo de conducción.`;
             } else if (desnivelNeto < -50) {
                 icon = "📉";
                 borderColor = "var(--regen)";
-                veredicto = `<strong>Gravedad a favor:</strong> Descenso pronunciado de ${Math.round(descensoTotal)} metros. Trayecto altamente eficiente. Se ha detectado una gran carga de regeneración de batería. Si hubo un uso intensivo del freno motor ICE, fue para proteger el sistema híbrido de una sobrecarga en la batería.`;
+                veredicto = `<strong>Gravedad a Favor:</strong> El descenso ha actuado como generador, inyectando unos <strong>+${kwhGratis.toFixed(2)} kWh</strong> de energía gratuita en la batería gracias a la inercia retenida.`;
             } else {
                 icon = "🎢";
                 borderColor = "var(--hybrid)";
-                veredicto = `<strong>Ruta Rompepiernas:</strong> Perfil ondulado con ascensos y descensos compensados (↑${Math.round(ascencionTotal)}m / ↓${Math.round(descensoTotal)}m). El algoritmo del Kona ha tenido que alternar constantemente entre tracción híbrida y regeneración para equilibrar la eficiencia energética.`;
+                veredicto = `<strong>Ruta Rompepiernas:</strong> El coste de escalar (${litrosExtra.toFixed(2)} L extra) ha sido amortiguado por la regeneración en las bajadas (recuperando ${kwhGratis.toFixed(2)} kWh). Alta exigencia para el sistema híbrido.`;
             }
 
             panel.innerHTML = `
@@ -1768,32 +2170,128 @@
 
         function actualizarPantallaSplash(resumen) {
             if (!resumen) return;
+            const C = 2 * Math.PI * 88; // SVG circumference ≈ 553
 
-            // Actualizar textos
+            // Text values
             document.getElementById('splash-ev-val').innerText = resumen.ev;
             document.getElementById('leg-ev').innerText = `${resumen.ev}%`;
             document.getElementById('leg-ice').innerText = `${resumen.ice}%`;
             document.getElementById('leg-regen').innerText = `${resumen.regen}%`;
 
-            // Calcular un tiempo ficticio basado en el total de puntos grabados para darle realismo al centro
-            // Cada punto es un segundo.
+            // Time display
             const horas = Math.floor((resumen.totalSecs || 3438) / 3600);
             const mins = Math.floor(((resumen.totalSecs || 3438) % 3600) / 60);
             const secs = (resumen.totalSecs || 3438) % 60;
             document.getElementById('splash-time-val').innerText =
                 `${horas}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-            // Actualizar el gran anillo HUD (Conic Gradient)
-            const degEv = resumen.ev;
-            const degIce = resumen.ev + resumen.ice;
-            document.getElementById('splash-hud-ring').style.background =
-                `conic-gradient(var(--ev) 0% ${degEv}%, var(--thermal) ${degEv}% ${degIce}%, var(--regen) ${degIce}% 100%)`;
+            // --- SVG arc update ---
+            // Each arc starts where the previous ends; we stack them on the circumference.
+            // stroke-dashoffset=-138 rotates the start to the top (12 o'clock).
+            const evLen = (resumen.ev / 100) * C;
+            const regenLen = (resumen.regen / 100) * C;
+            const thermalLen = (resumen.ice / 100) * C;
+            const gap = 4; // small gap between segments
+
+            const arcEv = document.getElementById('arc-ev');
+            const arcRegen = document.getElementById('arc-regen');
+            const arcThermal = document.getElementById('arc-thermal');
+
+            if (arcEv) {
+                arcEv.setAttribute('stroke-dasharray', `${Math.max(0, evLen - gap)} ${C - Math.max(0, evLen - gap)}`);
+                arcEv.setAttribute('stroke-dashoffset', '138');
+            }
+            if (arcRegen) {
+                const regenOffset = 138 - evLen;
+                arcRegen.setAttribute('stroke-dasharray', `${Math.max(0, regenLen - gap)} ${C - Math.max(0, regenLen - gap)}`);
+                arcRegen.setAttribute('stroke-dashoffset', regenOffset.toString());
+            }
+            if (arcThermal) {
+                const thermalOffset = 138 - evLen - regenLen;
+                arcThermal.setAttribute('stroke-dasharray', `${Math.max(0, thermalLen - gap)} ${C - Math.max(0, thermalLen - gap)}`);
+                arcThermal.setAttribute('stroke-dashoffset', thermalOffset.toString());
+            }
+        }
+
+        // --- HUD INITIALIZATION ---
+        function initHUD() {
+            // Build tick marks for Layer 3
+            const majorGroup = document.getElementById('hud-ticks');
+            const minorGroup = document.getElementById('hud-ticks-minor');
+            if (majorGroup && minorGroup) {
+                const cx = 110, cy = 110, r = 104;
+                for (let deg = 0; deg < 360; deg += 10) {
+                    const rad = (deg - 90) * Math.PI / 180;
+                    const isMajor = deg % 30 === 0;
+                    const inner = r - (isMajor ? 8 : 4);
+                    const x1 = cx + r * Math.cos(rad);
+                    const y1 = cy + r * Math.sin(rad);
+                    const x2 = cx + inner * Math.cos(rad);
+                    const y2 = cy + inner * Math.sin(rad);
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                    (isMajor ? majorGroup : minorGroup).appendChild(line);
+                }
+            }
+
+            // Orbital particles (Layer 5)
+            const canvas = document.getElementById('hud-particles');
+            if (!canvas) return;
+            const container = canvas.parentElement;
+            const resize = () => {
+                canvas.width = container.offsetWidth;
+                canvas.height = container.offsetHeight;
+            };
+            resize();
+            window.addEventListener('resize', resize);
+
+            const ctx2 = canvas.getContext('2d');
+            const particles = Array.from({ length: 6 }, (_, i) => ({
+                angle: (i / 6) * Math.PI * 2,
+                radius: (0.3 + Math.random() * 0.18),   // fraction of container
+                speed: (0.00012 + Math.random() * 0.00008) * (Math.random() > 0.5 ? 1 : -1),
+                size: 1.2 + Math.random() * 1.4,
+                alpha: 0.3 + Math.random() * 0.4,
+                color: i % 3 === 0 ? '0,255,160' : i % 3 === 1 ? '0,212,255' : '155,93,229'
+            }));
+
+            let rafId;
+            function drawParticles(ts) {
+                const w = canvas.width, h = canvas.height;
+                ctx2.clearRect(0, 0, w, h);
+                const cx2 = w / 2, cy2 = h / 2;
+                particles.forEach(p => {
+                    p.angle += p.speed;
+                    const r2 = Math.min(w, h) * p.radius;
+                    const x2 = cx2 + Math.cos(p.angle) * r2;
+                    const y2 = cy2 + Math.sin(p.angle) * r2;
+                    // soft glow
+                    const grad = ctx2.createRadialGradient(x2, y2, 0, x2, y2, p.size * 4);
+                    grad.addColorStop(0, `rgba(${p.color},${p.alpha})`);
+                    grad.addColorStop(0.4, `rgba(${p.color},${p.alpha * 0.3})`);
+                    grad.addColorStop(1, `rgba(${p.color},0)`);
+                    ctx2.beginPath();
+                    ctx2.arc(x2, y2, p.size * 4, 0, Math.PI * 2);
+                    ctx2.fillStyle = grad;
+                    ctx2.fill();
+                    // core dot
+                    ctx2.beginPath();
+                    ctx2.arc(x2, y2, p.size, 0, Math.PI * 2);
+                    ctx2.fillStyle = `rgba(${p.color},${p.alpha})`;
+                    ctx2.fill();
+                });
+                rafId = requestAnimationFrame(drawParticles);
+            }
+            rafId = requestAnimationFrame(drawParticles);
         }
 
         // Al cargar la página, recuperar la memoria
         window.addEventListener('DOMContentLoaded', () => {
+            initHUD();
             const memoria = localStorage.getItem('kona_last_summary');
             if (memoria) actualizarPantallaSplash(JSON.parse(memoria));
+            else actualizarPantallaSplash({ ev: 65, ice: 30, regen: 5, totalSecs: 3438 });
         });
 
         // El botón del Splash inicia la sincronización y luego oculta la pantalla
