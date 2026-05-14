@@ -2197,25 +2197,28 @@
         }
 
         function actualizarMiniHUD(totalDist, avgEv, avgCons, numTrips, totalIcePercent) {
-            const C = 2 * Math.PI * 45; // Circunferencia del anillo mini
-
-            // Actualizar textos
-            document.getElementById('mini-ev-val').innerText = `${avgEv.toFixed(0)}%`;
-            document.getElementById('mini-total-dist').innerText = totalDist.toFixed(1);
-            document.getElementById('mini-avg-cons').innerText = avgCons.toFixed(1);
-            document.getElementById('mini-total-trips').innerText = numTrips;
+            const C = 2 * Math.PI * 45; 
+            
+            // Actualizar textos SOLO si los elementos existen en el HTML
+            const elEv = document.getElementById('mini-ev-val');
+            if (elEv) elEv.innerText = `${avgEv.toFixed(0)}%`;
+            
+            const elDist = document.getElementById('mini-total-dist');
+            if (elDist) elDist.innerText = totalDist.toFixed(1);
+            
+            const elCons = document.getElementById('mini-avg-cons');
+            if (elCons) elCons.innerText = avgCons.toFixed(1);
+            
+            const elTrips = document.getElementById('mini-total-trips');
+            if (elTrips) elTrips.innerText = numTrips;
 
             // Actualizar Anillos SVG
-            const evDash = (avgEv / 100) * C;
-            const iceDash = (totalIcePercent / 100) * C;
-
             const arcEv = document.getElementById('mini-arc-ev');
             const arcIce = document.getElementById('mini-arc-ice');
 
-            if (arcEv) arcEv.setAttribute('stroke-dasharray', `${evDash} ${C}`);
+            if (arcEv) arcEv.setAttribute('stroke-dasharray', `${(avgEv / 100) * C} ${C}`);
             if (arcIce) {
-                // El arco de gasolina empieza donde termina el EV
-                arcIce.setAttribute('stroke-dasharray', `${iceDash} ${C}`);
+                arcIce.setAttribute('stroke-dasharray', `${(totalIcePercent / 100) * C} ${C}`);
                 arcIce.style.transform = `rotate(${(avgEv / 100) * 360}deg)`;
                 arcIce.style.transformOrigin = 'center';
             }
@@ -2234,12 +2237,15 @@
                 { label: "Ahorro CO2 Total", val: totalCO2.toFixed(1) + " kg", icon: "🍃" }
             ];
 
-            document.getElementById('records-body').innerHTML = records.map(r => `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <td style="padding: 12px 0; color: #888; font-size: 0.8rem;">${r.icon} ${r.label}</td>
-                    <td style="padding: 12px 0; text-align: right; color: #fff; font-weight: 600;">${r.val}</td>
-                </tr>
-            `).join('');
+            const recordsBody = document.getElementById('records-body');
+            if (recordsBody) {
+                recordsBody.innerHTML = records.map(r => `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 12px 0; color: #888; font-size: 0.8rem;">${r.icon} ${r.label}</td>
+                        <td style="padding: 12px 0; text-align: right; color: #fff; font-weight: 600;">${r.val}</td>
+                    </tr>
+                `).join('');
+            }
         }
 
         function renderizarComparativaMensual(trips) {
@@ -2917,6 +2923,26 @@
             }
             
             window.tripsPendientesMapa = null; // Tarea completada con éxito
+            
+            // --- ACTUALIZACIÓN BLINDADA DEL PANEL DEL MAPA ---
+            const totalEvKm = trips.reduce((acc, t) => acc + t.distEv, 0);
+            
+            const countEl = document.getElementById('map-trips-count');
+            if (countEl) countEl.innerText = trips.length;
+
+            const evEl = document.getElementById('map-ev-total');
+            if (evEl) evEl.innerText = totalEvKm.toFixed(1) + ' km';
+
+            const routeTypeTag = document.getElementById('map-route-type');
+            if (routeTypeTag) {
+                if (trips.length > 5) {
+                    routeTypeTag.innerText = "ZONA HABITUAL";
+                    routeTypeTag.style.background = "var(--ev)";
+                } else {
+                    routeTypeTag.innerText = "ZONA ESPORÁDICA";
+                    routeTypeTag.style.background = "var(--regen)";
+                }
+            }
         }
 
         // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
