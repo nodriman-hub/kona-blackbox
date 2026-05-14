@@ -75,6 +75,29 @@
             font-weight: 500;
         }
 
+        /* Unificación estética Splash */
+        .stat-box {
+            border-left: 3px solid var(--ev) !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background: rgba(10, 10, 15, 0.8) !important;
+        }
+
+        .time-tab {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.7rem !important;
+            padding: 8px 15px !important;
+        }
+
+        /* Corregir el scroll lateral apretado */
+        .time-tabs {
+            gap: 10px !important;
+            mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+        }
+
         /* Zona de arrastrar y soltar */
         #drop-zone {
             position: absolute;
@@ -1529,28 +1552,22 @@
     </div>
 
     <div id="dashboard">
-        <header>
-            <div style="display: flex; align-items: center;">
-                <button id="btn-open-settings"
-                    style="background:none; border:none; font-size:1.5rem; margin-right:15px; cursor:pointer;">⚙️</button>
-                <strong style="color: var(--hybrid);">📊 HISTÓRICO FORENSE</strong>
-                <span id="file-name" style="color:#888; margin-left:15px; font-size:0.9rem;">0 viajes</span>
-
-                <div class="time-tabs" id="view-tabs">
-                    <button class="time-tab active" data-period="all">TODO</button>
-                    <button class="time-tab" data-period="day">24H</button>
-                    <button class="time-tab" data-period="week">7 DÍAS</button>
-                    <button class="time-tab" data-period="month">30 DÍAS</button>
-                    <button class="time-tab" data-period="year">365 DÍAS</button>
+        <header style="flex-direction: column; align-items: stretch; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div style="display: flex; align-items: center;">
+                    <button id="btn-open-settings"
+                        style="background:none; border:none; font-size:1.5rem; margin-right:10px; cursor:pointer;">⚙️</button>
+                    <strong style="color: var(--ev); letter-spacing: 1px; font-size: 0.9rem;">KONA BLACKBOX</strong>
                 </div>
+                <span id="file-name" style="color:#666; font-size:0.75rem;">0 rutas</span>
             </div>
-            <div>
-                <button id="btn-sync-cloud" class="glass-btn primary" style="margin-right: 10px; display: inline-flex;">
-                    ☁️ Sincronizar Nube
-                </button>
-                <button id="btn-add-csv" class="glass-btn ev-btn" style="display: inline-flex;">
-                    + Añadir CSV Local
-                </button>
+
+            <div class="time-tabs" id="view-tabs" style="justify-content: flex-start; padding: 2px 0;">
+                <button class="time-tab active" data-period="all">TODO</button>
+                <button class="time-tab" data-period="day">24H</button>
+                <button class="time-tab" data-period="week">7 DÍAS</button>
+                <button class="time-tab" data-period="month">30 DÍAS</button>
+                <button class="time-tab" data-period="year">365 DÍAS</button>
             </div>
         </header>
 
@@ -2833,40 +2850,44 @@
         }
 
         // --- SISTEMA DE CONFIGURACIÓN DEL VEHÍCULO ---
-        const settingsModal = document.getElementById('settings-modal');
-        const inputFuelRate = document.getElementById('input-fuel-rate');
-        const inputFuelPrice = document.getElementById('input-fuel-price');
-
         let CONFIG = { fuelRate: 5.5, fuelPrice: 1.65 };
 
         function cargarConfiguracion() {
             const guardado = localStorage.getItem('kona_config');
             if (guardado) {
                 CONFIG = JSON.parse(guardado);
-                inputFuelRate.value = CONFIG.fuelRate;
-                inputFuelPrice.value = CONFIG.fuelPrice;
             }
         }
         cargarConfiguracion();
 
-        // ARREGLO: Usar el botón ya existente en el HTML
+        // ARREGLO ERROR CRÍTICO: Leer los inputs en el momento del click (lazy)
         document.getElementById('btn-open-settings').onclick = () => {
-            settingsModal.style.display = 'flex';
-            setTimeout(() => settingsModal.style.opacity = '1', 10);
+            const modal = document.getElementById('settings-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                // Cargamos los valores en los inputs justo antes de mostrarlo
+                document.getElementById('input-fuel-rate').value = CONFIG.fuelRate;
+                document.getElementById('input-fuel-price').value = CONFIG.fuelPrice;
+                setTimeout(() => modal.style.opacity = '1', 10);
+            } else {
+                console.error("El modal de ajustes no existe en el DOM aún.");
+            }
         };
 
-        document.getElementById('btn-save-settings').addEventListener('click', () => {
-            CONFIG.fuelRate = parseFloat(inputFuelRate.value) || 5.5;
-            CONFIG.fuelPrice = parseFloat(inputFuelPrice.value) || 1.65;
+        document.getElementById('btn-save-settings').onclick = () => {
+            const modal = document.getElementById('settings-modal');
+            CONFIG.fuelRate = parseFloat(document.getElementById('input-fuel-rate').value) || 5.5;
+            CONFIG.fuelPrice = parseFloat(document.getElementById('input-fuel-price').value) || 1.65;
             localStorage.setItem('kona_config', JSON.stringify(CONFIG));
-            settingsModal.style.opacity = '0';
-            setTimeout(() => settingsModal.style.display = 'none', 300);
-            actualizarDashboard(); // Recalcular todo
-        });
+            modal.style.opacity = '0';
+            setTimeout(() => modal.style.display = 'none', 300);
+            actualizarDashboard();
+        };
 
         document.getElementById('btn-close-settings').onclick = () => {
-            settingsModal.style.opacity = '0';
-            setTimeout(() => settingsModal.style.display = 'none', 300);
+            const modal = document.getElementById('settings-modal');
+            modal.style.opacity = '0';
+            setTimeout(() => modal.style.display = 'none', 300);
         };
     </script>
 
