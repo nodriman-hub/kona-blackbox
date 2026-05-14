@@ -1841,7 +1841,8 @@
         }
 
         async function renderizarHistorial(trips) {
-            const container = document.querySelector('.side-panel');
+            // Buscamos el nuevo contenedor móvil, si no existe usamos el general
+            const container = document.getElementById('mobile-rutas') || document.querySelector('.side-panel');
             const oldList = document.querySelector('.trip-list');
             if (oldList) oldList.remove();
 
@@ -2003,12 +2004,25 @@
             // 3. Veredicto Topográfico
             renderizarVeredictoTopografico(trip);
 
-            // 4. Auto-Scroll en móviles: Salto automático a la gráfica
+            // 4. Aislar en la Pantalla de Detalle (Móvil Premium)
             if (window.innerWidth <= 768) {
-                const chartElement = document.getElementById('charts');
-                if (chartElement) {
-                    chartElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
+                const detailView = document.getElementById('trip-detail-view');
+                const detailContent = document.getElementById('detail-content');
+
+                // Movemos temporalmente los datos a la pantalla aislada
+                detailContent.appendChild(document.getElementById('map'));
+                detailContent.appendChild(document.getElementById('charts'));
+                detailContent.appendChild(document.getElementById('motor-radiography'));
+                detailContent.appendChild(document.getElementById('topo-verdict'));
+
+                // Aseguramos que el mapa tome la altura correcta
+                document.getElementById('map').style.height = '40vh';
+
+                // Deslizamos la pantalla hacia adentro
+                detailView.classList.add('active');
+
+                // Forzamos a Leaflet a recalcular el mapa tras la animación
+                setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 350);
             }
         }
 
@@ -2711,11 +2725,30 @@
         });
 
         // --- CERRAR DETALLE DE VIAJE ---
-        document.getElementById('btn-close-detail').addEventListener('click', () => {
-            document.getElementById('trip-detail-view').classList.remove('active');
-            // Al volver, nos aseguramos de estar en la vista de Rutas
-            document.getElementById('nav-rutas').click();
-        });
+        const btnCloseDetail = document.getElementById('btn-close-detail');
+        if (btnCloseDetail) {
+            btnCloseDetail.addEventListener('click', () => {
+                const detailView = document.getElementById('trip-detail-view');
+                detailView.classList.remove('active'); // Oculta la pantalla
+
+                // Devolver los elementos a su sitio original tras la animación
+                setTimeout(() => {
+                    const mainPanel = document.querySelector('.main-panel');
+                    const mapaContainer = document.getElementById('mobile-mapa');
+                    const statsContainer = document.getElementById('mobile-stats');
+
+                    if (mapaContainer) mapaContainer.appendChild(document.getElementById('map'));
+                    if (statsContainer) statsContainer.appendChild(document.getElementById('charts'));
+                    if (mainPanel) {
+                        mainPanel.appendChild(document.getElementById('motor-radiography'));
+                        mainPanel.appendChild(document.getElementById('topo-verdict'));
+                    }
+
+                    // Volvemos automáticamente a la pestaña de rutas
+                    document.getElementById('nav-rutas').click();
+                }, 300);
+            });
+        }
 
     </script>
 </body>
