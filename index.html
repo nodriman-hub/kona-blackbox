@@ -1987,14 +1987,9 @@
                 const color = colors[p1.mode] || '#fff';
 
                 L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
-                    color: color,
-                    weight: 5,
-                    opacity: 1
+                    color: color, weight: 5, opacity: 1
                 }).addTo(mapInstance);
                 polylinePoints.push([p1.lat, p1.lon]);
-            }
-            if (polylinePoints.length > 0) {
-                mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
             }
 
             // 2. Actualizar Gráfica con el perfil de altitud del viaje
@@ -2021,8 +2016,20 @@
                 // Deslizamos la pantalla hacia adentro
                 detailView.classList.add('active');
 
-                // Forzamos a Leaflet a recalcular el mapa tras la animación
-                setTimeout(() => { if (mapInstance) mapInstance.invalidateSize(); }, 350);
+                // Forzamos a Leaflet a recalcular y encuadrar tras la animación (350ms)
+                setTimeout(() => { 
+                    if (mapInstance) {
+                        mapInstance.invalidateSize(); 
+                        if (polylinePoints.length > 0) {
+                            mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
+                        }
+                    }
+                }, 350);
+            } else {
+                // En escritorio, encuadramos inmediatamente
+                if (polylinePoints.length > 0) {
+                    mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
+                }
             }
         }
 
@@ -2733,15 +2740,17 @@
 
                 // Devolver los elementos a su sitio original tras la animación
                 setTimeout(() => {
-                    const mainPanel = document.querySelector('.main-panel');
                     const mapaContainer = document.getElementById('mobile-mapa');
                     const statsContainer = document.getElementById('mobile-stats');
 
-                    if (mapaContainer) mapaContainer.appendChild(document.getElementById('map'));
-                    if (statsContainer) statsContainer.appendChild(document.getElementById('charts'));
-                    if (mainPanel) {
-                        mainPanel.appendChild(document.getElementById('motor-radiography'));
-                        mainPanel.appendChild(document.getElementById('topo-verdict'));
+                    if (mapaContainer) {
+                        mapaContainer.appendChild(document.getElementById('map'));
+                    }
+                    if (statsContainer) {
+                        statsContainer.appendChild(document.getElementById('charts'));
+                        // METER ESTOS DOS EN LA PESTAÑA STATS, NO EN MAIN-PANEL
+                        statsContainer.appendChild(document.getElementById('motor-radiography'));
+                        statsContainer.appendChild(document.getElementById('topo-verdict'));
                     }
 
                     // Volvemos automáticamente a la pestaña de rutas
