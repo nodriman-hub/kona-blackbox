@@ -2447,21 +2447,20 @@
             const co2CocheEstandar = litrosCocheEstandar * 2.3;
             const ahorroCO2 = Math.max(0, co2CocheEstandar - co2Emitido);
 
-            // 2. EFFICIENCY SCORE (0-100)
-            // Se basa en el % de uso EV + un bonus por uso de Regeneración.
+            // 2. EFFICIENCY SCORE (0-100) - CALIBRADO PARA HEV
             let regenPoints = 0;
             trip.coords.forEach(c => { if (c.mode === 'REGEN') regenPoints++; });
             const regenPercent = trip.coords.length > 0 ? (regenPoints / trip.coords.length) * 100 : 0;
 
-            // Fórmula: 80% de la nota es tu uso EV, 20% es tu aprovechamiento de la regeneración
-            let score = Math.round((trip.ev * 0.8) + (regenPercent * 1.2));
+            // Fórmula realista: 50% EV ya da 70 puntos. Un 10% de regen da 30 puntos extra.
+            let score = Math.round((trip.ev * 1.4) + (regenPercent * 3.0));
             score = Math.min(100, Math.max(0, score)); // Acotar entre 0 y 100
 
-            // Colores dinámicos para la nota
+            // Colores dinámicos más amables
             let scoreColor = "var(--ev)";
-            let scoreText = "Conducción Excelente";
-            if (score < 50) { scoreColor = "var(--thermal)"; scoreText = "Alta Demanda Térmica"; }
-            else if (score < 75) { scoreColor = "var(--hybrid)"; scoreText = "Eficiencia Moderada"; }
+            let scoreText = "Máxima Eficiencia HEV";
+            if (score < 40) { scoreColor = "var(--thermal)"; scoreText = "Alta Demanda Térmica"; }
+            else if (score < 65) { scoreColor = "var(--hybrid)"; scoreText = "Eficiencia en Autovía"; }
 
             // 3. RENDERIZADO
             panel.innerHTML = `
@@ -2636,11 +2635,13 @@
             trips.forEach(trip => {
                 if (trip.coords.length === 0) return;
 
-                // --- NUEVO: Calcular score individual para el viaje ---
+                // --- NUEVO: Calcular score individual realista para HEV ---
                 let regenPoints = trip.coords.filter(c => c.mode === 'REGEN').length;
                 const regenPercent = trip.coords.length > 0 ? (regenPoints / trip.coords.length) * 100 : 0;
-                // Fórmula ajustada: damos algo más de peso a la regeneración en carretera
-                trip.individualScore = Math.round((trip.ev * 0.7) + (regenPercent * 1.5));
+
+                // Calibración Híbrido Autorrecargable: 
+                // Un 50% de uso EV da 70 puntos. Un 10% de regeneración da 30 puntos.
+                trip.individualScore = Math.round((trip.ev * 1.4) + (regenPercent * 3.0));
                 trip.individualScore = Math.min(100, Math.max(0, trip.individualScore));
 
                 const start = trip.coords[0];
