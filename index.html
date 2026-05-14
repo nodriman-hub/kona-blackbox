@@ -1769,8 +1769,11 @@
                     const distEv = parseFloat(fila.ev_km) || 0;
                     const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
                     const iceDist = distTotal - distEv;
-                    // NUEVA LÍNEA: Lee el dato real. Si no existe (viajes antiguos), usa la estimación
-                    const tripFuel = parseFloat(fila.fuel_liters) || (iceDist * (5.5 / 100));
+                    // Usamos el dato real guardado en BD. Si no existe, usamos la media de la configuración
+                    const tripFuel = parseFloat(fila.fuel_liters) || (iceDist * (CONFIG.fuelRate / 100));
+
+                    // Guardamos el dato crudo por si cambiamos la configuración luego
+                    const fuelRealGuardado = parseFloat(fila.fuel_liters) || null;
 
                     let tripDate = new Date(fila.created_at);
                     if (isNaN(tripDate.getTime())) tripDate = new Date();
@@ -1781,6 +1784,7 @@
                         distEv: distEv,
                         ev: evPercent,
                         fuel: tripFuel,
+                        fuelRealGuardado: fuelRealGuardado,
                         coords: coordenadas
                     });
 
@@ -2017,9 +2021,9 @@
                 detailView.classList.add('active');
 
                 // Forzamos a Leaflet a recalcular y encuadrar tras la animación (350ms)
-                setTimeout(() => { 
+                setTimeout(() => {
                     if (mapInstance) {
-                        mapInstance.invalidateSize(); 
+                        mapInstance.invalidateSize();
                         if (polylinePoints.length > 0) {
                             mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
                         }
@@ -2772,7 +2776,112 @@
             });
         }
 
+        // --- SISTEMA DE CONFIGURACIÓN DEL VEHÍCULO ---
+        const settingsModal = document.getElementById('settings-modal');
+        const inputFuelRate = document.getElementById('input-fuel-rate');
+        const inputFuelPrice = document.getElementById('input-fuel-price');
+
+        // Valores por defecto
+        let CONFIG = {
+            fuelRate: 5.5,
+            fuelPrice: 1.65
+        };
+
+        // Cargar configuración guardada
+        function cargarConfiguracion() {
+            const guardado = localStorage.getItem('kona_config');
+            if (guardado) {
+                CONFIG = JSON.parse(guardado);
+                inputFuelRate.value = CONFIG.fuelRate;
+                inputFuelPrice.value = CONFIG.fuelPrice;
+            }
+        }
+        cargarConfiguracion(); // Ejecutar al inicio
+
+        // Guardar configuración
+        document.getElementById('btn-save-settings').addEventListener('click', () => {
+            CONFIG.fuelRate = parseFloat(inputFuelRate.value) || 5.5;
+            CONFIG.fuelPrice = parseFloat(inputFuelPrice.value) || 1.65;
+            localStorage.setItem('kona_config', JSON.stringify(CONFIG));
+
+            // Cerrar modal
+            settingsModal.style.opacity = '0';
+            setTimeout(() => settingsModal.style.display = 'none', 300);
+
+            // IMPORTANTE: Recalcular todo con los nuevos precios
+            if (accumulatedTrips.length > 0) {
+                // Volvemos a procesar los datos para actualizar los consumos estimados antiguos
+                const filas = accumulatedTrips.map(t => {
+                    return {
+                        total_km: t.dist,
+                        ev_km: t.distEv,
+                        fuel_liters: t.fuelRealGuardado, // Necesitaremos esta propiedad (explicado abajo)
+                        created_at: t.date.toISOString(),
+                        route_data: t.coords
+                    }
+                });
+                procesarDatos(filas);
+            }
+        });
+
+        document.getElementById('btn-close-settings').addEventListener('click', () => {
+            settingsModal.style.opacity = '0';
+            setTimeout(() => settingsModal.style.display = 'none', 300);
+        });
+
+        // --- BOTÓN PARA ABRIR AJUSTES ---
+        // Vamos a aprovechar el header para poner un icono de engranaje
+        const headerDiv = document.querySelector('header > div:first-child');
+        const btnAjustes = document.createElement('button');
+        btnAjustes.innerHTML = '⚙️';
+        btnAjustes.style.cssText = 'background:none; border:none; font-size:1.5rem; margin-right:15px; cursor:pointer;';
+        btnAjustes.onclick = () => {
+            settingsModal.style.display = 'flex';
+            setTimeout(() => settingsModal.style.opacity = '1', 10);
+        };
+        headerDiv.insertBefore(btnAjustes, headerDiv.firstChild);
     </script>
+
+    <div id="settings-modal" class="hidden"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 4000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;">
+        <div
+            style="background: rgba(10, 12, 18, 0.95); border: 1px solid var(--ev); border-radius: 15px; padding: 25px; width: 85%; max-width: 400px; box-shadow: 0 0 30px rgba(0, 255, 170, 0.2);">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: var(--ev); font-family: 'Space Grotesk', sans-serif; letter-spacing: 1px;">
+                    ⚙️ CALIBRACIÓN DEL VEHÍCULO</h3>
+                <button id="btn-close-settings"
+                    style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label
+                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">CONSUMO
+                    MEDIO ESTIMADO (L/100km)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-fuel-rate" step="0.1" value="5.5"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
+                </div>
+                <small style="color: #666; font-size: 0.7rem; display: block; margin-top: 5px;">Se usará si el OBD no
+                    registra el consumo real.</small>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label
+                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">PRECIO
+                    DEL COMBUSTIBLE (€/L)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-fuel-price" step="0.01" value="1.65"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
+                </div>
+            </div>
+
+            <button id="btn-save-settings" class="glass-btn primary"
+                style="width: 100%; font-weight: bold; background: rgba(0, 255, 170, 0.15); color: var(--ev); border-color: var(--ev);">
+                GUARDAR CALIBRACIÓN
+            </button>
+        </div>
+    </div>
 </body>
 
 </html>
