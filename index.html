@@ -263,6 +263,83 @@
             margin-bottom: 20px;
         }
 
+        /* --- MINI HUD WIDGET (INICIO) --- */
+        .mini-hud-container {
+            background: linear-gradient(180deg, rgba(0, 255, 170, 0.05) 0%, rgba(10, 10, 15, 0.8) 100%);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mini-hud-ring {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mini-hud-svg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .mini-hud-data {
+            text-align: center;
+            z-index: 10;
+        }
+
+        .mini-hud-val {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .mini-hud-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--ev);
+            margin-top: 5px;
+        }
+
+        .mini-hud-stats-row {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 15px;
+        }
+
+        .mini-stat-item {
+            text-align: center;
+        }
+
+        .mini-stat-val {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .mini-stat-lab {
+            font-size: 0.55rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         .stat-box {
             background: var(--panel);
             backdrop-filter: blur(16px);
@@ -1682,28 +1759,38 @@
         <div class="grid-layout show-inicio" id="app-container">
             <div class="side-panel">
                 <div id="mobile-inicio" class="mobile-view">
-                    <div class="stat-box" style="border-left-color: #aaa;">
-                        <div class="stat-title">🗺️ Distancia Total</div>
-                        <div class="stat-val"><span id="val-dist">0.0</span> <small
-                                style="font-size: 0.9rem; color:#888;">km</small></div>
+                    <div class="mini-hud-container">
+                        <div class="mini-hud-ring">
+                            <svg class="mini-hud-svg" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" />
+                                <circle id="mini-arc-ev" cx="50" cy="50" r="45" fill="none" stroke="var(--ev)" stroke-width="6" stroke-dasharray="0 283" stroke-linecap="round" style="transition: stroke-dasharray 1s ease;" />
+                                <circle id="mini-arc-ice" cx="50" cy="50" r="45" fill="none" stroke="var(--thermal)" stroke-width="4" stroke-dasharray="0 283" stroke-linecap="round" style="transition: stroke-dasharray 1.2s ease;" />
+                            </svg>
+                            <div class="mini-hud-data">
+                                <div class="mini-hud-val" id="mini-ev-val">0%</div>
+                                <div class="mini-hud-label">EV GLOBAL</div>
+                            </div>
+                        </div>
+
+                        <div class="mini-hud-stats-row">
+                            <div class="mini-stat-item">
+                                <div class="mini-stat-val" id="mini-total-dist">0.0</div>
+                                <div class="mini-stat-lab">KM TOTAL</div>
+                            </div>
+                            <div class="mini-stat-item">
+                                <div class="mini-stat-val" style="color: var(--thermal);" id="mini-avg-cons">0.0</div>
+                                <div class="mini-stat-lab">L/100KM</div>
+                            </div>
+                            <div class="mini-stat-item">
+                                <div class="mini-stat-val" style="color: var(--regen);" id="mini-total-trips">0</div>
+                                <div class="mini-stat-lab">RUTAS</div>
+                            </div>
+                        </div>
                     </div>
+
                     <div class="stat-box" style="border-left-color: var(--ev);">
-                        <div class="stat-title">🟢 Conducción Cero Emisiones (EV + Regen)</div>
-                        <div class="stat-val">
-                            <span id="val-ev">0</span> <small style="font-size: 0.9rem; color:#888;">% tiempo</small>
-                        </div>
-                        <div style="font-size: 0.85rem; color: #888; margin-top: 2px;">
-                            <span id="val-ev-km" style="color: var(--ev); font-weight: bold;">0.0</span> km
-                        </div>
-                    </div>
-                    <div class="stat-box" style="border-left-color: var(--thermal);">
-                        <div class="stat-title">⛽ Consumo Medio Real</div>
-                        <div class="stat-val"><span id="val-cons">0.0</span> <small
-                                style="font-size: 0.9rem; color:#888;">L/100km</small></div>
-                    </div>
-                    <div class="stat-box" style="border-left-color: var(--regen);">
-                        <div class="stat-title">📁 Viajes Analizados</div>
-                        <div class="stat-val"><span id="val-soc-diff">0</span></div>
+                        <div class="stat-title">🟢 Conducción Cero Emisiones</div>
+                        <div class="stat-val"><span id="val-ev-km">0.0</span> <small>km libres</small></div>
                     </div>
                 </div>
 
@@ -2027,6 +2114,31 @@
             }
         }
 
+        function actualizarMiniHUD(totalDist, avgEv, avgCons, numTrips, totalIcePercent) {
+            const C = 2 * Math.PI * 45; // Circunferencia del anillo mini
+
+            // Actualizar textos
+            document.getElementById('mini-ev-val').innerText = `${avgEv.toFixed(0)}%`;
+            document.getElementById('mini-total-dist').innerText = totalDist.toFixed(1);
+            document.getElementById('mini-avg-cons').innerText = avgCons.toFixed(1);
+            document.getElementById('mini-total-trips').innerText = numTrips;
+
+            // Actualizar Anillos SVG
+            const evDash = (avgEv / 100) * C;
+            const iceDash = (totalIcePercent / 100) * C;
+
+            const arcEv = document.getElementById('mini-arc-ev');
+            const arcIce = document.getElementById('mini-arc-ice');
+
+            if (arcEv) arcEv.setAttribute('stroke-dasharray', `${evDash} ${C}`);
+            if (arcIce) {
+                // El arco de gasolina empieza donde termina el EV
+                arcIce.setAttribute('stroke-dasharray', `${iceDash} ${C}`);
+                arcIce.style.transform = `rotate(${(avgEv / 100) * 360}deg)`;
+                arcIce.style.transformOrigin = 'center';
+            }
+        }
+
         // --- ACTUALIZACIÓN DE MÉTRICAS GLOBALES ---
         function actualizarDashboard() {
             document.getElementById('motor-radiography').style.display = 'none';
@@ -2053,6 +2165,12 @@
             document.getElementById('val-cons').innerText = (totalDist > 0 ? (totalFuel * 100) / totalDist : 0).toFixed(1);
             document.getElementById('val-soc-diff').innerText = filteredTrips.length;
             document.getElementById('file-name').innerText = `${filteredTrips.length} viajes mostrados`;
+
+            // Actualizar Mini HUD
+            const avgEv = filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0;
+            const avgCons = totalDist > 0 ? (totalFuel * 100) / totalDist : 0;
+            const icePercent = 100 - avgEv;
+            actualizarMiniHUD(totalDist, avgEv, avgCons, filteredTrips.length, icePercent);
 
             // 2. Ejecutar "El Juez" (Agrupación de Rutas)
             renderizarHistorial(filteredTrips);
