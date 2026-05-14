@@ -1454,9 +1454,12 @@
 
         .kpi-val {
             font-family: 'Space Grotesk', monospace;
-            font-size: 1.2rem;
+            font-size: clamp(0.9rem, 4vw, 1.2rem); /* Se adapta al tamaño de la pantalla */
             color: #fff;
             font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .kpi-label {
@@ -2455,15 +2458,15 @@
                 </div>
                 <div class="kpi-grid">
                     <div class="kpi-item">
-                        <div class="kpi-val" style="color: #ffaa00;">\${costeViaje.toFixed(2)}€</div>
+                        <div class="kpi-val" style="color: #ffaa00;">${costeViaje.toFixed(2)}€</div>
                         <div class="kpi-label">Coste Viaje</div>
                     </div>
                     <div class="kpi-item">
-                        <div class="kpi-val" style="color: var(--ev);">-\${ahorroCO2.toFixed(1)}<span style="font-size:0.7rem;">kg</span></div>
+                        <div class="kpi-val" style="color: var(--ev);">-${ahorroCO2.toFixed(1)}<span style="font-size:0.7rem;">kg</span></div>
                         <div class="kpi-label">CO₂ Ahorrado</div>
                     </div>
                     <div class="kpi-item">
-                        <div class="kpi-val">\${trip.fuel.toFixed(2)}<span style="font-size:0.7rem;">L</span></div>
+                        <div class="kpi-val">${trip.fuel.toFixed(2)}<span style="font-size:0.7rem;">L</span></div>
                         <div class="kpi-label">Combustible</div>
                     </div>
                 </div>
