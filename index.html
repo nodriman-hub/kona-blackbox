@@ -340,6 +340,60 @@
             letter-spacing: 1px;
         }
 
+        /* --- TARJETAS DE TENDENCIA MENSUAL --- */
+        .trend-card {
+            background: rgba(15, 20, 30, 0.6);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .trend-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .trend-row:last-child { border-bottom: none; }
+
+        .trend-info { display: flex; flex-direction: column; }
+
+        .trend-label {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .trend-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .trend-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .trend-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .trend-up { background: rgba(0, 255, 170, 0.15); color: var(--ev); }
+        .trend-down { background: rgba(155, 93, 229, 0.15); color: var(--thermal); }
+        .trend-neutral { background: rgba(255, 255, 255, 0.05); color: #888; }
+
         .stat-box {
             background: var(--panel);
             backdrop-filter: blur(16px);
@@ -1832,6 +1886,11 @@
                             </tbody>
                         </table>
                     </div>
+                    <div id="monthly-comparison-container" class="glass-panel" style="margin: 15px; padding: 15px;">
+                        <h4 class="stat-title" style="color: var(--regen); margin-bottom: 15px;">📊 COMPARATIVA VS MES ANTERIOR</h4>
+                        <div id="trend-list">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2183,6 +2242,68 @@
             `).join('');
         }
 
+        function renderizarComparativaMensual(trips) {
+            const ahora = new Date();
+            const mesActual = ahora.getMonth();
+            const añoActual = ahora.getFullYear();
+
+            // Calcular mes pasado
+            let mesPasado = mesActual - 1;
+            let añoPasado = añoActual;
+            if (mesPasado < 0) { mesPasado = 11; añoPasado--; }
+
+            // Filtrar viajes
+            const tripsMesAct = trips.filter(t => t.date.getMonth() === mesActual && t.date.getFullYear() === añoActual);
+            const tripsMesAnt = trips.filter(t => t.date.getMonth() === mesPasado && t.date.getFullYear() === añoPasado);
+
+            if (tripsMesAnt.length === 0) {
+                document.getElementById('trend-list').innerHTML = `<p style="color:#666; font-size:0.8rem; text-align:center;">Esperando a completar el mes para generar comparativa...</p>`;
+                return;
+            }
+
+            // Cálculos Mes Actual
+            const distEvAct = tripsMesAct.reduce((acc, t) => acc + t.distEv, 0);
+            const totalDistAct = tripsMesAct.reduce((acc, t) => acc + t.dist, 0);
+            const consMedioAct = totalDistAct > 0 ? (tripsMesAct.reduce((acc, t) => acc + t.fuel, 0) * 100 / totalDistAct) : 0;
+
+            // Cálculos Mes Anterior
+            const distEvAnt = tripsMesAnt.reduce((acc, t) => acc + t.distEv, 0);
+            const totalDistAnt = tripsMesAnt.reduce((acc, t) => acc + t.dist, 0);
+            const consMedioAnt = totalDistAnt > 0 ? (tripsMesAnt.reduce((acc, t) => acc + t.fuel, 0) * 100 / totalDistAnt) : 0;
+
+            // Lógica de indicadores
+            const diffEv = distEvAct - distEvAnt;
+            const diffCons = consMedioAct - consMedioAnt;
+
+            const crearFila = (label, valAct, diff, unit, inversa = false) => {
+                // inversa = true significa que bajar es bueno (ej: consumo)
+                const esBueno = inversa ? diff <= 0 : diff >= 0;
+                const icono = diff >= 0 ? '▲' : '▼';
+                const clase = diff === 0 ? 'trend-neutral' : (esBueno ? 'trend-up' : 'trend-down');
+                const signo = diff > 0 ? '+' : '';
+
+                return `
+                    <div class="trend-row">
+                        <div class="trend-info">
+                            <span class="trend-label">${label}</span>
+                            <span class="trend-value">${valAct.toFixed(1)}${unit}</span>
+                        </div>
+                        <div class="trend-indicator">
+                            <div class="trend-badge ${clase}">
+                                ${icono} ${signo}${diff.toFixed(1)}${unit}
+                            </div>
+                            <span style="font-size:0.6rem; color:#555; margin-top:4px;">vs mes pasado</span>
+                        </div>
+                    </div>
+                `;
+            };
+
+            document.getElementById('trend-list').innerHTML = `
+                ${crearFila('Kilómetros en Modo EV', distEvAct, diffEv, ' km')}
+                ${crearFila('Consumo Medio Gasolina', consMedioAct, diffCons, ' L', true)}
+            `;
+        }
+
         // --- ACTUALIZACIÓN DE MÉTRICAS GLOBALES ---
         function actualizarDashboard() {
             document.getElementById('motor-radiography').style.display = 'none';
@@ -2222,6 +2343,7 @@
             dibujarMapaGlobal(filteredTrips);
             dibujarGraficaGlobal(filteredTrips);
             actualizarRecords(filteredTrips);
+            renderizarComparativaMensual(accumulatedTrips);
         }
 
         async function renderizarHistorial(trips) {
