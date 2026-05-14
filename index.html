@@ -2274,13 +2274,12 @@
             const elMoney = document.getElementById('home-money-saved');
             if (elMoney) elMoney.innerText = `${totalAhorroEuros.toFixed(2)} €`;
 
-            // Guardamos los viajes en el objeto global para que el HTML pueda verlos
-            window.viajesRécord = {
-                dist: maxDistTrip,
-                score: maxScoreTrip,
-                eco: minConsumoTrip,
-                ev: maxEvTrip
-            };
+            // ARREGLO 1: Guardamos los récords SIN borrar el 'ultimo' viaje
+            if (!window.viajesRécord) window.viajesRécord = {};
+            window.viajesRécord['dist'] = maxDistTrip;
+            window.viajesRécord['score'] = maxScoreTrip;
+            window.viajesRécord['eco'] = minConsumoTrip;
+            window.viajesRécord['ev'] = maxEvTrip;
 
             const records = [
                 { label: "Ruta más Larga", val: maxDistTrip.dist.toFixed(1) + " km", icon: "🛣️", id: 'dist' },
@@ -2583,7 +2582,16 @@
 
         function verDetalleViaje(trip) {
             // 1. Limpiar Mapa y dibujar ruta de neón específica
-            if (mapInstance) mapInstance.remove();
+            if (mapInstance) {
+                mapInstance.off();
+                mapInstance.remove();
+                mapInstance = null;
+            }
+            
+            // ARREGLO 2: BLINDAJE LEAFLET (Borrado forzoso de caché)
+            const mapCont = document.getElementById('map');
+            if (mapCont) mapCont._leaflet_id = null; 
+
             mapInstance = L.map('map').setView([trip.coords[0].lat, trip.coords[0].lon], 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
 
@@ -2969,45 +2977,9 @@
         // --- DIBUJAR MAPA DE CALOR GLOBAL ---
         let mapInstance = null;
         function dibujarMapaGlobal(trips) {
-            const mapContainer = document.getElementById('map');
-            
-            // CORTAFUEGOS ABSOLUTO: Si el mapa está oculto en otra pestaña, abortamos y guardamos
-            if (!mapContainer || mapContainer.offsetParent === null) {
-                window.tripsPendientesMapa = trips;
-                return; // Cortamos la ejecución aquí, salvando la app del "crasheo"
-            }
-
-            if (mapInstance) {
-                mapInstance.off();
-                mapInstance.remove();
-            }
             if (trips.length === 0) return;
 
-            mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
-
-            const heatPoints = [];
-            trips.forEach(trip => {
-                trip.coords.forEach(c => {
-                    heatPoints.push([c.lat, c.lon, 1]);
-                });
-            });
-
-            // Solo dibujamos la capa de calor si estamos seguros de que el mapa existe y se ve
-            L.heatLayer(heatPoints, {
-                radius: 12, blur: 15, maxZoom: 15,
-                gradient: { 0.2: '#00d4ff', 0.5: '#00ff88', 0.8: '#ffaa00', 1.0: '#ff4444' }
-            }).addTo(mapInstance);
-
-            if (heatPoints.length > 0) {
-                const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
-                mapInstance.fitBounds(bounds, { padding: [30, 30] });
-                window.lastGlobalBounds = bounds; 
-            }
-            
-            window.tripsPendientesMapa = null; // Tarea completada con éxito
-            
-            // --- ACTUALIZACIÓN BLINDADA DEL PANEL DEL MAPA ---
+            // ARREGLO 3: ACTUALIZAR TEXTOS DEL PANEL SIEMPRE (Aunque el mapa no se vea aún)
             const totalEvKm = trips.reduce((acc, t) => acc + t.distEv, 0);
             
             const countEl = document.getElementById('map-trips-count');
@@ -3026,6 +2998,44 @@
                     routeTypeTag.style.background = "var(--regen)";
                 }
             }
+
+            // --- CORTAFUEGOS DEL MAPA VISUAL ---
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer || mapContainer.offsetParent === null) {
+                window.tripsPendientesMapa = trips;
+                return; // Cortamos aquí para evitar el error del Canvas en pestañas ocultas
+            }
+
+            // Limpieza absoluta de Leaflet
+            if (mapInstance) {
+                mapInstance.off();
+                mapInstance.remove();
+                mapInstance = null;
+            }
+            mapContainer._leaflet_id = null;
+
+            mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
+
+            const heatPoints = [];
+            trips.forEach(trip => {
+                trip.coords.forEach(c => {
+                    heatPoints.push([c.lat, c.lon, 1]);
+                });
+            });
+
+            L.heatLayer(heatPoints, {
+                radius: 12, blur: 15, maxZoom: 15,
+                gradient: { 0.2: '#00d4ff', 0.5: '#00ff88', 0.8: '#ffaa00', 1.0: '#ff4444' }
+            }).addTo(mapInstance);
+
+            if (heatPoints.length > 0) {
+                const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
+                mapInstance.fitBounds(bounds, { padding: [30, 30] });
+                window.lastGlobalBounds = bounds; 
+            }
+            
+            window.tripsPendientesMapa = null; // Tarea completada con éxito
         }
 
         // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
