@@ -26,12 +26,15 @@
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin="anonymous"></script>
     <style>
         :root {
-            --bg: #04070D;
-            --panel: rgba(10, 12, 20, 0.6);
+            --bg: #000000;
+            --panel: rgba(10, 10, 15, 0.7);
             --text: #ffffff;
             --ev: #00ffaa;
+            /* Verde Neón del Splash */
             --thermal: #9b5de5;
+            /* Morado del Splash */
             --regen: #00d4ff;
+            /* Cian del Splash */
             --hybrid: #00d4ff;
         }
 
@@ -43,9 +46,33 @@
             height: 100%;
             background: var(--bg);
             color: var(--text);
-            font-family: 'Space Grotesk', 'Sora', system-ui, sans-serif;
+            font-family: 'Space Grotesk', sans-serif;
             overflow-x: hidden;
             width: 100vw;
+        }
+
+        /* Tarjetas con efecto cristal del Splash */
+        .stat-box,
+        .trip-item,
+        .route-group,
+        #topo-verdict,
+        .motor-stat {
+            background: var(--panel) !important;
+            backdrop-filter: blur(15px) saturate(1.2);
+            -webkit-backdrop-filter: blur(15px) saturate(1.2);
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border-radius: 12px;
+        }
+
+        /* Mejorar legibilidad en Pixel 9 Pro (pantallas altas/estrechas) */
+        .stat-title {
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+        }
+
+        .stat-val {
+            font-size: 1.8rem;
+            font-weight: 500;
         }
 
         /* Zona de arrastrar y soltar */
@@ -1458,7 +1485,7 @@
         </div><!-- end hud-ring-container -->
 
         <!-- Legend bar -->
-        <div class="hud-legend">
+        <div class="hud-legend" style="flex-wrap: wrap; justify-content: center; gap: 15px;">
             <div class="hud-legend-item">
                 <div class="hud-dot" style="background:#00ffaa; box-shadow: 0 0 6px #00ffaa;"></div>
                 Eléctrico <span id="leg-ev">65%</span>
@@ -1470,6 +1497,10 @@
             <div class="hud-legend-item">
                 <div class="hud-dot" style="background:#00d4ff; box-shadow: 0 0 6px #00d4ff;"></div>
                 Regeneración <span id="leg-regen">5%</span>
+            </div>
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background:#ffaa00; box-shadow: 0 0 6px #ffaa00;"></div>
+                Media <span id="leg-fuel">-- L/100km</span>
             </div>
         </div>
 
@@ -1500,7 +1531,8 @@
     <div id="dashboard">
         <header>
             <div style="display: flex; align-items: center;">
-                <button id="btn-open-settings" style="background:none; border:none; font-size:1.5rem; margin-right:15px; cursor:pointer;">⚙️</button>
+                <button id="btn-open-settings"
+                    style="background:none; border:none; font-size:1.5rem; margin-right:15px; cursor:pointer;">⚙️</button>
                 <strong style="color: var(--hybrid);">📊 HISTÓRICO FORENSE</strong>
                 <span id="file-name" style="color:#888; margin-left:15px; font-size:0.9rem;">0 viajes</span>
 
@@ -1804,8 +1836,8 @@
 
                 // Damos 300ms para que el Dashboard sea visible antes de calcular el mapa
                 setTimeout(() => {
-                    actualizarDashboard(); 
-                    
+                    actualizarDashboard();
+
                     // Forzamos al mapa a reconocer su nuevo tamaño
                     if (mapInstance) {
                         mapInstance.invalidateSize();
@@ -1814,7 +1846,7 @@
                             mapInstance.fitBounds(window.lastGlobalBounds, { padding: [30, 30] });
                         }
                     }
-                    
+
                     window.dispatchEvent(new Event('resize'));
                     if (typeof guardarResumenLocal === 'function') guardarResumenLocal(accumulatedTrips);
                 }, 300);
@@ -2250,27 +2282,37 @@
             let icon = "";
             const desnivelNeto = ascencionTotal - descensoTotal;
 
-            // --- FÍSICA KONA HEV (~1550kg con pasajeros) ---
-            const litrosExtra = (ascencionTotal / 100) * 0.12;
-            const costeExtra = litrosExtra * CONFIG.fuelPrice; // CONFIG.fuelPrice viene de tus Ajustes
-            const kwhGratis = (descensoTotal / 100) * 0.25;
+            // --- FÍSICA APLICADA: Comparación real vs. Ruta Fantasma Plana ---
+            const litrosConsumidos = trip.fuel;
+            const litrosSiFuesePlano = trip.dist * (CONFIG.fuelRate / 100);
+            const diferenciaLitros = litrosConsumidos - litrosSiFuesePlano;
+            const costeDiferencia = diferenciaLitros * CONFIG.fuelPrice;
+
+            let veredictoTexto = "";
+            if (Math.abs(diferenciaLitros) < 0.05) {
+                veredictoTexto = "<strong>Eficiencia Neutra:</strong> El terreno no ha influido significativamente. Tu consumo ha sido el estándar para esta distancia.";
+            } else if (diferenciaLitros > 0) {
+                veredictoTexto = `<strong>Penalización por Elevación:</strong> La orografía te ha obligado a gastar <strong>+${diferenciaLitros.toFixed(2)}L</strong> extra (aprox. <strong>${costeDiferencia.toFixed(2)}€</strong>) comparado con un trayecto llano.`;
+            } else {
+                veredictoTexto = `<strong>Bonificación por Descenso:</strong> Has ahorrado <strong>${Math.abs(diferenciaLitros).toFixed(2)}L</strong> (aprox. <strong>${Math.abs(costeDiferencia).toFixed(2)}€</strong>) gracias a la energía recuperada en las bajadas.`;
+            }
 
             if (ascencionTotal < 30 && descensoTotal < 30) {
                 icon = "🛣️";
                 borderColor = "var(--ev)";
-                veredicto = `<strong>Terreno Plano:</strong> Sin penalizaciones. El consumo de combustible en este trayecto depende única y exclusivamente de la presión sobre el acelerador.`;
+                veredicto = veredictoTexto || `<strong>Terreno Plano:</strong> Sin penalizaciones. El consumo depende exclusivamente de la presión sobre el acelerador.`;
             } else if (desnivelNeto > 50) {
                 icon = "⛰️";
                 borderColor = "var(--thermal)";
-                veredicto = `<strong>Penalización por Escalada:</strong> Subir estos metros te ha costado aproximadamente <strong>+${litrosExtra.toFixed(2)} Litros</strong> extra (${costeExtra.toFixed(2)}€), debido a la gravedad.`;
+                veredicto = veredictoTexto;
             } else if (desnivelNeto < -50) {
                 icon = "📉";
                 borderColor = "var(--regen)";
-                veredicto = `<strong>Gravedad a Favor:</strong> El descenso ha actuado como generador, inyectando unos <strong>+${kwhGratis.toFixed(2)} kWh</strong> de energía gratuita en la batería gracias a la inercia retenida.`;
+                veredicto = veredictoTexto;
             } else {
                 icon = "🎢";
                 borderColor = "var(--hybrid)";
-                veredicto = `<strong>Ruta Rompepiernas:</strong> El coste de escalar (${litrosExtra.toFixed(2)} L extra) ha sido amortiguado por la regeneración en las bajadas (recuperando ${kwhGratis.toFixed(2)} kWh). Alta exigencia para el sistema híbrido.`;
+                veredicto = veredictoTexto;
             }
 
             panel.innerHTML = `
@@ -2795,13 +2837,8 @@
         const inputFuelRate = document.getElementById('input-fuel-rate');
         const inputFuelPrice = document.getElementById('input-fuel-price');
 
-        // Valores por defecto
-        let CONFIG = {
-            fuelRate: 5.5,
-            fuelPrice: 1.65
-        };
+        let CONFIG = { fuelRate: 5.5, fuelPrice: 1.65 };
 
-        // Cargar configuración guardada
         function cargarConfiguracion() {
             const guardado = localStorage.getItem('kona_config');
             if (guardado) {
@@ -2810,48 +2847,27 @@
                 inputFuelPrice.value = CONFIG.fuelPrice;
             }
         }
-        cargarConfiguracion(); // Ejecutar al inicio
+        cargarConfiguracion();
 
-        // Guardar configuración
+        // ARREGLO: Usar el botón ya existente en el HTML
+        document.getElementById('btn-open-settings').onclick = () => {
+            settingsModal.style.display = 'flex';
+            setTimeout(() => settingsModal.style.opacity = '1', 10);
+        };
+
         document.getElementById('btn-save-settings').addEventListener('click', () => {
             CONFIG.fuelRate = parseFloat(inputFuelRate.value) || 5.5;
             CONFIG.fuelPrice = parseFloat(inputFuelPrice.value) || 1.65;
             localStorage.setItem('kona_config', JSON.stringify(CONFIG));
-
-            // Cerrar modal
             settingsModal.style.opacity = '0';
             setTimeout(() => settingsModal.style.display = 'none', 300);
-
-            // IMPORTANTE: Recalcular todo con los nuevos precios
-            if (accumulatedTrips.length > 0) {
-                // Volvemos a procesar los datos para actualizar los consumos estimados antiguos
-                const filas = accumulatedTrips.map(t => {
-                    return {
-                        total_km: t.dist,
-                        ev_km: t.distEv,
-                        fuel_liters: t.fuelRealGuardado, // Necesitaremos esta propiedad (explicado abajo)
-                        created_at: t.date.toISOString(),
-                        route_data: t.coords
-                    }
-                });
-                procesarDatos(filas);
-            }
+            actualizarDashboard(); // Recalcular todo
         });
 
-        document.getElementById('btn-close-settings').addEventListener('click', () => {
+        document.getElementById('btn-close-settings').onclick = () => {
             settingsModal.style.opacity = '0';
             setTimeout(() => settingsModal.style.display = 'none', 300);
-        });
-
-        // --- ABRIR AJUSTES ---
-        const btnOpenSettings = document.getElementById('btn-open-settings');
-        if (btnOpenSettings) {
-            btnOpenSettings.onclick = () => {
-                const modal = document.getElementById('settings-modal');
-                modal.style.display = 'flex';
-                setTimeout(() => modal.style.opacity = '1', 10);
-            };
-        }
+        };
     </script>
 
     <div id="settings-modal" class="hidden"
