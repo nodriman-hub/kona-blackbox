@@ -2319,6 +2319,7 @@
             if (heatPoints.length > 0) {
                 const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
                 mapInstance.fitBounds(bounds, { padding: [30, 30] });
+                window.lastGlobalBounds = bounds; // <--- NUEVO: GUARDAMOS LA FOTO DEL ENCUADRE
             }
         }
 
@@ -2727,6 +2728,18 @@
                     targetBtn.classList.add('active');
                     // 3. Cambiar la clase del contenedor para mostrar la vista correcta
                     appContainer.className = `grid-layout ${views[targetBtn.id]}`;
+
+                    // 4. ARREGLO DEL MAPA FANTASMA
+                    if (targetBtn.id === 'nav-mapa') {
+                        setTimeout(() => {
+                            if (mapInstance) {
+                                mapInstance.invalidateSize(); // Fuerza al mapa a medir la pantalla real
+                                if (window.lastGlobalBounds) {
+                                    mapInstance.fitBounds(window.lastGlobalBounds, { padding: [30, 30] });
+                                }
+                            }
+                        }, 150); // Le damos 150ms a la pantalla para que termine de abrirse
+                    }
                 }
             });
         });
