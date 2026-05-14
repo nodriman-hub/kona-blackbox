@@ -1657,6 +1657,47 @@
         <div id="debug-console-logs"></div>
     </div>
 
+    <div id="settings-modal" class="hidden"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 4000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;">
+        <div
+            style="background: rgba(10, 12, 18, 0.95); border: 1px solid var(--ev); border-radius: 15px; padding: 25px; width: 85%; max-width: 400px; box-shadow: 0 0 30px rgba(0, 255, 170, 0.2);">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: var(--ev); font-family: 'Space Grotesk', sans-serif; letter-spacing: 1px;">
+                    ⚙️ CALIBRACIÓN DEL VEHÍCULO</h3>
+                <button id="btn-close-settings"
+                    style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label
+                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">CONSUMO
+                    MEDIO ESTIMADO (L/100km)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-fuel-rate" step="0.1" value="5.5"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
+                </div>
+                <small style="color: #666; font-size: 0.7rem; display: block; margin-top: 5px;">Se usará si el OBD no
+                    registra el consumo real.</small>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label
+                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">PRECIO
+                    DEL COMBUSTIBLE (€/L)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-fuel-price" step="0.01" value="1.65"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
+                </div>
+            </div>
+
+            <button id="btn-save-settings" class="glass-btn primary"
+                style="width: 100%; font-weight: bold; background: rgba(0, 255, 170, 0.15); color: var(--ev); border-color: var(--ev);">
+                GUARDAR CALIBRACIÓN
+            </button>
+        </div>
+    </div>
+
     <script>
         // --- INTERCEPTOR DE CONSOLA (DEBE IR AL PRINCIPIO) ---
         const logContainer = document.getElementById('debug-console-logs');
@@ -2518,8 +2559,11 @@
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkdHRmeml4ZmZhc3VvcnZxa2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDA5ODAsImV4cCI6MjA5MDE3Njk4MH0.Wrwc7bbW1vhEvXebHAroH6_Lpf93f6egBN5SSr6cmmk';
         const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-        document.getElementById('btn-sync-cloud').addEventListener('click', descargarDatosNube);
-        document.getElementById('btn-sync-cloud-main').addEventListener('click', descargarDatosNube);
+        // SOLO ACTIVAR EL BOTÓN QUE EXISTE REALMENTE
+        const btnMainSync = document.getElementById('btn-sync-cloud-main');
+        if (btnMainSync) {
+            btnMainSync.addEventListener('click', descargarDatosNube);
+        }
 
         async function descargarDatosNube(event) {
             // Identificamos qué botón pulsaste para ponerle el icono de carga
@@ -2858,83 +2902,50 @@
 
         function cargarConfiguracion() {
             const guardado = localStorage.getItem('kona_config');
-            if (guardado) {
-                CONFIG = JSON.parse(guardado);
-            }
+            if (guardado) { CONFIG = JSON.parse(guardado); }
         }
         cargarConfiguracion();
 
-        // ARREGLO ERROR CRÍTICO: Leer los inputs en el momento del click (lazy)
-        document.getElementById('btn-open-settings').onclick = () => {
-            const modal = document.getElementById('settings-modal');
-            if (modal) {
-                modal.style.display = 'flex';
-                // Cargamos los valores en los inputs justo antes de mostrarlo
-                document.getElementById('input-fuel-rate').value = CONFIG.fuelRate;
-                document.getElementById('input-fuel-price').value = CONFIG.fuelPrice;
-                setTimeout(() => modal.style.opacity = '1', 10);
-            } else {
-                console.error("El modal de ajustes no existe en el DOM aún.");
-            }
-        };
+        // Usar una función segura para abrir los ajustes
+        const btnSettings = document.getElementById('btn-open-settings');
+        if (btnSettings) {
+            btnSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.getElementById('input-fuel-rate').value = CONFIG.fuelRate;
+                    document.getElementById('input-fuel-price').value = CONFIG.fuelPrice;
+                    setTimeout(() => modal.style.opacity = '1', 10);
+                }
+            };
+        }
 
-        document.getElementById('btn-save-settings').onclick = () => {
-            const modal = document.getElementById('settings-modal');
-            CONFIG.fuelRate = parseFloat(document.getElementById('input-fuel-rate').value) || 5.5;
-            CONFIG.fuelPrice = parseFloat(document.getElementById('input-fuel-price').value) || 1.65;
-            localStorage.setItem('kona_config', JSON.stringify(CONFIG));
-            modal.style.opacity = '0';
-            setTimeout(() => modal.style.display = 'none', 300);
-            actualizarDashboard();
-        };
+        const btnSaveSettings = document.getElementById('btn-save-settings');
+        if (btnSaveSettings) {
+            btnSaveSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                CONFIG.fuelRate = parseFloat(document.getElementById('input-fuel-rate').value) || 5.5;
+                CONFIG.fuelPrice = parseFloat(document.getElementById('input-fuel-price').value) || 1.65;
+                localStorage.setItem('kona_config', JSON.stringify(CONFIG));
+                if (modal) {
+                    modal.style.opacity = '0';
+                    setTimeout(() => modal.style.display = 'none', 300);
+                }
+                actualizarDashboard();
+            };
+        }
 
-        document.getElementById('btn-close-settings').onclick = () => {
-            const modal = document.getElementById('settings-modal');
-            modal.style.opacity = '0';
-            setTimeout(() => modal.style.display = 'none', 300);
-        };
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        if (btnCloseSettings) {
+            btnCloseSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                if (modal) {
+                    modal.style.opacity = '0';
+                    setTimeout(() => modal.style.display = 'none', 300);
+                }
+            };
+        }
     </script>
-
-    <div id="settings-modal" class="hidden"
-        style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 4000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;">
-        <div
-            style="background: rgba(10, 12, 18, 0.95); border: 1px solid var(--ev); border-radius: 15px; padding: 25px; width: 85%; max-width: 400px; box-shadow: 0 0 30px rgba(0, 255, 170, 0.2);">
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                <h3 style="margin: 0; color: var(--ev); font-family: 'Space Grotesk', sans-serif; letter-spacing: 1px;">
-                    ⚙️ CALIBRACIÓN DEL VEHÍCULO</h3>
-                <button id="btn-close-settings"
-                    style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">×</button>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <label
-                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">CONSUMO
-                    MEDIO ESTIMADO (L/100km)</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="number" id="input-fuel-rate" step="0.1" value="5.5"
-                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
-                </div>
-                <small style="color: #666; font-size: 0.7rem; display: block; margin-top: 5px;">Se usará si el OBD no
-                    registra el consumo real.</small>
-            </div>
-
-            <div style="margin-bottom: 25px;">
-                <label
-                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">PRECIO
-                    DEL COMBUSTIBLE (€/L)</label>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="number" id="input-fuel-price" step="0.01" value="1.65"
-                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
-                </div>
-            </div>
-
-            <button id="btn-save-settings" class="glass-btn primary"
-                style="width: 100%; font-weight: bold; background: rgba(0, 255, 170, 0.15); color: var(--ev); border-color: var(--ev);">
-                GUARDAR CALIBRACIÓN
-            </button>
-        </div>
-    </div>
 </body>
 
 </html>
