@@ -1454,7 +1454,8 @@
 
         .kpi-val {
             font-family: 'Space Grotesk', monospace;
-            font-size: clamp(0.9rem, 4vw, 1.2rem); /* Se adapta al tamaño de la pantalla */
+            font-size: clamp(0.9rem, 4vw, 1.2rem);
+            /* Se adapta al tamaño de la pantalla */
             color: #fff;
             font-weight: 500;
             white-space: nowrap;
@@ -2073,13 +2074,30 @@
             // 1. Renderizado instantáneo de la UI
             for (let i = 0; i < grupos.length; i++) {
                 const group = grupos[i];
+
+                // --- NUEVO: Calcular la media del grupo ---
+                const sumaScores = group.trips.reduce((acc, t) => acc + (t.individualScore || 0), 0);
+                const mediaScore = Math.round(sumaScores / group.trips.length);
+
+                // Definir color según la media
+                let colorScore = mediaScore > 70 ? 'var(--ev)' : (mediaScore > 40 ? 'var(--hybrid)' : 'var(--thermal)');
+
                 const groupEl = document.createElement('div');
                 groupEl.className = 'route-group';
 
                 const header = document.createElement('div');
                 header.className = 'route-header';
                 const headerId = `route-title-${i}`;
-                header.innerHTML = `<span id="${headerId}">📍 Calculando ruta... (${group.trips.length})</span> <span>▼</span>`;
+                // Añadimos un badge con la media del score a la derecha
+                header.innerHTML = `
+                    <span id="${headerId}">📍 Calculando ruta... (${group.trips.length})</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="background: ${colorScore}33; color: ${colorScore}; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; border: 1px solid ${colorScore}66;">
+                            ${mediaScore} pts
+                        </span>
+                        <span>▼</span>
+                    </div>
+                `;
                 header.onclick = () => groupEl.classList.toggle('active');
 
                 const content = document.createElement('div');
@@ -2617,6 +2635,13 @@
 
             trips.forEach(trip => {
                 if (trip.coords.length === 0) return;
+
+                // --- NUEVO: Calcular score individual para el viaje ---
+                let regenPoints = trip.coords.filter(c => c.mode === 'REGEN').length;
+                const regenPercent = trip.coords.length > 0 ? (regenPoints / trip.coords.length) * 100 : 0;
+                // Fórmula ajustada: damos algo más de peso a la regeneración en carretera
+                trip.individualScore = Math.round((trip.ev * 0.7) + (regenPercent * 1.5));
+                trip.individualScore = Math.min(100, Math.max(0, trip.individualScore));
 
                 const start = trip.coords[0];
                 const end = trip.coords[trip.coords.length - 1];
