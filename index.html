@@ -2877,21 +2877,24 @@
         }
 
         // --- DIBUJAR MAPA DE CALOR GLOBAL ---
+        // --- DIBUJAR MAPA DE CALOR GLOBAL ---
         let mapInstance = null;
         function dibujarMapaGlobal(trips) {
             const mapContainer = document.getElementById('map');
-
-            // Si el contenedor del mapa mide 0 (está oculto en otra pestaña), posponemos el dibujo
-            if (mapContainer.clientWidth === 0) {
+            
+            // CORTAFUEGOS ABSOLUTO: Si el mapa está oculto en otra pestaña, abortamos y guardamos
+            if (!mapContainer || mapContainer.offsetParent === null) {
                 window.tripsPendientesMapa = trips;
-                return; // Cortamos aquí para evitar el error del Canvas
+                return; // Cortamos la ejecución aquí, salvando la app del "crasheo"
             }
 
-            if (mapInstance) mapInstance.remove();
+            if (mapInstance) {
+                mapInstance.off();
+                mapInstance.remove();
+            }
             if (trips.length === 0) return;
 
             mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
-            mapInstance.invalidateSize();
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
 
             const heatPoints = [];
@@ -2901,6 +2904,7 @@
                 });
             });
 
+            // Solo dibujamos la capa de calor si estamos seguros de que el mapa existe y se ve
             L.heatLayer(heatPoints, {
                 radius: 12, blur: 15, maxZoom: 15,
                 gradient: { 0.2: '#00d4ff', 0.5: '#00ff88', 0.8: '#ffaa00', 1.0: '#ff4444' }
@@ -2909,27 +2913,10 @@
             if (heatPoints.length > 0) {
                 const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
                 mapInstance.fitBounds(bounds, { padding: [30, 30] });
-                window.lastGlobalBounds = bounds;
+                window.lastGlobalBounds = bounds; 
             }
-
-            window.tripsPendientesMapa = null; // Limpiamos la tarea pendiente
-
-            // Actualizar panel informativo del mapa
-            const totalEvKm = trips.reduce((acc, t) => acc + t.distEv, 0);
-            document.getElementById('map-trips-count').innerText = trips.length;
-            document.getElementById('map-ev-total').innerText = totalEvKm.toFixed(1) + ' km';
-
-            // Lógica de tipo de ruta simplificada
-            const routeTypeTag = document.getElementById('map-route-type');
-            if (trips.length > 5) {
-                routeTypeTag.innerText = "ZONA HABITUAL";
-                routeTypeTag.style.background = "var(--ev)";
-                routeTypeTag.style.color = "#000";
-            } else {
-                routeTypeTag.innerText = "ZONA ESPORÁDICA";
-                routeTypeTag.style.background = "var(--regen)";
-                routeTypeTag.style.color = "#000";
-            }
+            
+            window.tripsPendientesMapa = null; // Tarea completada con éxito
         }
 
         // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
