@@ -1794,8 +1794,8 @@
         <header style="flex-direction: column; align-items: stretch; gap: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <div style="display: flex; align-items: center;">
-                    <button id="btn-open-settings"
-                        style="background:none; border:none; font-size:1.5rem; margin-right:10px; cursor:pointer;">⚙️</button>
+                    <button id="btn-open-settings" style="background:none; border:none; font-size:1.5rem; margin-right:10px; cursor:pointer;">⚙️</button>
+                    <button id="btn-sync-header" style="background:none; border:none; font-size:1.3rem; margin-right:10px; cursor:pointer;" title="Sincronizar Nube">🔄</button>
                     <strong style="color: var(--ev); letter-spacing: 1px; font-size: 0.9rem;">KONA BLACKBOX</strong>
                 </div>
                 <span id="file-name" style="color:#666; font-size:0.75rem;">0 rutas</span>
@@ -1826,6 +1826,11 @@
                             </div>
                         </div>
 
+                        <div style="display: flex; width: 100%; justify-content: space-around; margin-top: 10px; font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem;">
+                            <span style="color: var(--hybrid);">⛽ ICE: <span id="mini-ice-val">0</span>%</span>
+                            <span style="color: var(--regen);">🔋 REG: <span id="mini-regen-val">0</span>%</span>
+                        </div>
+                        
                         <div class="mini-hud-stats-row">
                             <div class="mini-stat-item">
                                 <div class="mini-stat-val" id="mini-total-dist">0.0</div>
@@ -1842,10 +1847,19 @@
                         </div>
                     </div>
 
-                    <div class="stat-box" style="border-left-color: var(--ev);">
-                        <div class="stat-title">🟢 Conducción Cero Emisiones</div>
-                        <div class="stat-val"><span id="val-ev-km">0.0</span> <small>km libres</small></div>
+                    <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                        <div class="stat-box" style="margin-bottom:0; border-left-color: var(--ev);">
+                            <div class="stat-title">CO₂ Ahorrado</div>
+                            <div class="stat-val" style="font-size: 1.4rem; color: var(--ev);" id="home-co2-saved">0.0 kg</div>
+                        </div>
+                        <div class="stat-box" style="margin-bottom:0; border-left-color: #ffaa00;">
+                            <div class="stat-title">Dinero Ahorrado</div>
+                            <div class="stat-val" style="font-size: 1.4rem; color: #ffaa00;" id="home-money-saved">0.00 €</div>
+                        </div>
                     </div>
+
+                    <h4 class="stat-title" style="color: var(--regen); margin-bottom: 10px;">🕒 ÚLTIMO TRAYECTO</h4>
+                    <div id="home-last-trip"></div>
                 </div>
 
                 <div id="mobile-rutas" class="mobile-view">
@@ -2083,6 +2097,7 @@
 
         // --- ACUMULADOR HISTÓRICO ---
         let accumulatedTrips = [];
+        window.viajesRécord = {}; // Almacén temporal para los clics
         let currentPeriod = 'all';
 
         // Escuchar pestañas de tiempo
@@ -2222,27 +2237,65 @@
                 arcIce.style.transform = `rotate(${(avgEv / 100) * 360}deg)`;
                 arcIce.style.transformOrigin = 'center';
             }
+            
+            // Nuevos datos
+            const elIce = document.getElementById('mini-ice-val');
+            if (elIce) elIce.innerText = totalIcePercent.toFixed(1);
         }
 
         function actualizarRecords(trips) {
             if (trips.length === 0) return;
 
-            const maxDist = Math.max(...trips.map(t => t.dist));
-            const maxScore = Math.max(...trips.map(t => t.individualScore || 0));
-            const totalCO2 = trips.reduce((acc, t) => acc + (t.dist * (7.5/100) * 2.3) - (t.fuel * 2.3), 0);
+            let maxDistTrip = trips[0];
+            let maxScoreTrip = trips[0];
+            let minConsumoTrip = trips[0];
+            let maxEvTrip = trips[0];
+
+            let totalCO2 = 0;
+            let totalAhorroEuros = 0;
+
+            trips.forEach((t, index) => {
+                t.globalIndex = index; // Guardamos su posición
+                
+                if (t.dist > maxDistTrip.dist) maxDistTrip = t;
+                if ((t.individualScore || 0) > (maxScoreTrip.individualScore || 0)) maxScoreTrip = t;
+                // Min consumo: Filtramos viajes de más de 2km para que no gane un viaje de aparcar
+                if (t.dist > 2 && t.fuel < minConsumoTrip.fuel) minConsumoTrip = t; 
+                if (t.ev > maxEvTrip.ev) maxEvTrip = t;
+
+                const co2Ahorrado = (t.dist * (7.5/100) * 2.3) - (t.fuel * 2.3);
+                totalCO2 += Math.max(0, co2Ahorrado);
+                totalAhorroEuros += Math.max(0, co2Ahorrado / 2.3 * CONFIG.fuelPrice); // Equiv en litros * precio
+            });
+
+            // Actualizamos la pantalla de inicio (Los datos que dejamos vacíos antes)
+            const elCo2 = document.getElementById('home-co2-saved');
+            if (elCo2) elCo2.innerText = `${totalCO2.toFixed(1)} kg`;
+            const elMoney = document.getElementById('home-money-saved');
+            if (elMoney) elMoney.innerText = `${totalAhorroEuros.toFixed(2)} €`;
+
+            // Guardamos los viajes en el objeto global para que el HTML pueda verlos
+            window.viajesRécord = {
+                dist: maxDistTrip,
+                score: maxScoreTrip,
+                eco: minConsumoTrip,
+                ev: maxEvTrip
+            };
 
             const records = [
-                { label: "Ruta más larga", val: maxDist.toFixed(1) + " km", icon: "🛣️" },
-                { label: "Mejor Score", val: maxScore + " pts", icon: "💎" },
-                { label: "Ahorro CO2 Total", val: totalCO2.toFixed(1) + " kg", icon: "🍃" }
+                { label: "Ruta más Larga", val: maxDistTrip.dist.toFixed(1) + " km", icon: "🛣️", id: 'dist' },
+                { label: "Récord Eficiencia", val: (maxScoreTrip.individualScore || 0) + " pts", icon: "💎", id: 'score' },
+                { label: "Mayor % EV", val: maxEvTrip.ev.toFixed(1) + " %", icon: "⚡", id: 'ev' },
+                { label: "Menor Consumo Absoluto", val: minConsumoTrip.fuel.toFixed(2) + " L", icon: "🍃", id: 'eco' }
             ];
 
             const recordsBody = document.getElementById('records-body');
             if (recordsBody) {
+                // Le metemos un onclick a la fila entera
                 recordsBody.innerHTML = records.map(r => `
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="verDetalleViaje(window.viajesRécord['${r.id}'])">
                         <td style="padding: 12px 0; color: #888; font-size: 0.8rem;">${r.icon} ${r.label}</td>
-                        <td style="padding: 12px 0; text-align: right; color: #fff; font-weight: 600;">${r.val}</td>
+                        <td style="padding: 12px 0; text-align: right; color: #fff; font-weight: 600;">${r.val} <span style="font-size: 0.6rem; color: var(--ev);">Ver ▸</span></td>
                     </tr>
                 `).join('');
             }
@@ -2354,6 +2407,24 @@
             const avgCons = totalDist > 0 ? (totalFuel * 100) / totalDist : 0;
             const icePercent = 100 - avgEv;
             actualizarMiniHUD(totalDist, avgEv, avgCons, filteredTrips.length, icePercent);
+
+            // --- RENDERIZAR ÚLTIMO VIAJE ---
+            const lastTripContainer = document.getElementById('home-last-trip');
+            if (lastTripContainer && filteredTrips.length > 0) {
+                const ultimoViaje = filteredTrips[filteredTrips.length - 1];
+                window.viajesRécord['ultimo'] = ultimoViaje; // Lo guardamos para el clic
+                
+                lastTripContainer.innerHTML = `
+                    <div class="trip-item" style="border-left: 4px solid var(--regen);" onclick="verDetalleViaje(window.viajesRécord['ultimo'])">
+                        <div class="trip-info-main">
+                            <span class="trip-dist">${ultimoViaje.dist.toFixed(1)} km</span>
+                            <span class="trip-date">${ultimoViaje.date.toLocaleDateString()} ${ultimoViaje.date.getHours()}:${ultimoViaje.date.getMinutes().toString().padStart(2, '0')}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #888;">Eficiencia EV: ${ultimoViaje.ev.toFixed(1)}% | Consumo: ${ultimoViaje.fuel.toFixed(2)}L</div>
+                        <div class="efficiency-bar-bg"><div class="efficiency-bar-fill" style="width: ${ultimoViaje.ev}%"></div></div>
+                    </div>
+                `;
+            }
 
             // 2. Ejecutar "El Juez" (Agrupación de Rutas)
             renderizarHistorial(filteredTrips);
@@ -3049,102 +3120,53 @@
             const ctx = document.getElementById('telemetryChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
 
-            // 1. Agrupar datos por semanas (ISO Week)
-            const semanas = {};
+            const agrupacion = {};
 
             trips.forEach(t => {
                 const fecha = new Date(t.date);
-                // Obtenemos el número de semana
-                const primEnero = new Date(fecha.getFullYear(), 0, 1);
-                const nSemana = Math.ceil((((fecha - primEnero) / 86400000) + primEnero.getDay() + 1) / 7);
-                const label = `Sem ${nSemana}`;
+                let label = "";
 
-                if (!semanas[label]) {
-                    semanas[label] = { ev: 0, ice: 0, scoreTotal: 0, count: 0 };
+                // Eje X Dinámico según la pestaña seleccionada
+                if (currentPeriod === 'day') {
+                    label = `${fecha.getHours()}:00`; // Agrupar por hora
+                } else if (currentPeriod === 'week' || currentPeriod === 'month') {
+                    label = fecha.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }); // Agrupar por día
+                } else {
+                    // Año o Todo: Agrupar por Mes
+                    label = fecha.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }); 
                 }
 
-                semanas[label].ev += t.distEv;
-                semanas[label].ice += (t.dist - t.distEv);
-                semanas[label].scoreTotal += (t.individualScore || 0);
-                semanas[label].count++;
+                if (!agrupacion[label]) {
+                    agrupacion[label] = { ev: 0, ice: 0, scoreTotal: 0, count: 0 };
+                }
+
+                agrupacion[label].ev += t.distEv;
+                agrupacion[label].ice += (t.dist - t.distEv);
+                agrupacion[label].scoreTotal += (t.individualScore || 0);
+                agrupacion[label].count++;
             });
 
-            const labels = Object.keys(semanas);
-            const dataEV = labels.map(l => semanas[l].ev.toFixed(1));
-            const dataICE = labels.map(l => semanas[l].ice.toFixed(1));
-            const dataScore = labels.map(l => (semanas[l].scoreTotal / semanas[l].count).toFixed(0));
+            const labels = Object.keys(agrupacion);
+            const dataEV = labels.map(l => agrupacion[l].ev.toFixed(1));
+            const dataICE = labels.map(l => agrupacion[l].ice.toFixed(1));
+            const dataScore = labels.map(l => (agrupacion[l].scoreTotal / agrupacion[l].count).toFixed(0));
 
-            // 2. Renderizar Gráfica de Barras Apiladas
             chartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        {
-                            label: 'Km Eléctrico',
-                            data: dataEV,
-                            backgroundColor: '#00ffaa', // Verde Neón
-                            stack: 'Stack 0',
-                            order: 2
-                        },
-                        {
-                            label: 'Km Gasolina',
-                            data: dataICE,
-                            backgroundColor: '#9b5de5', // Morado Térmico
-                            stack: 'Stack 0',
-                            order: 2
-                        },
-                        {
-                            label: 'Eficiencia Media',
-                            type: 'line',
-                            data: dataScore,
-                            borderColor: '#ffffff',
-                            borderWidth: 3,
-                            pointBackgroundColor: '#ffffff',
-                            yAxisID: 'y1',
-                            tension: 0.4,
-                            order: 1
-                        }
+                        { label: 'Km Eléctrico', data: dataEV, backgroundColor: '#00ffaa', stack: 'Stack 0', order: 2 },
+                        { label: 'Km Gasolina', data: dataICE, backgroundColor: '#9b5de5', stack: 'Stack 0', order: 2 },
+                        { label: 'Eficiencia Media', type: 'line', data: dataScore, borderColor: '#ffffff', borderWidth: 3, pointBackgroundColor: '#ffffff', yAxisID: 'y1', tension: 0.4, order: 1 }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     scales: {
-                        x: {
-                            stacked: true,
-                            grid: { display: false },
-                            ticks: { color: '#888', font: { family: 'Space Grotesk' } }
-                        },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            title: { display: true, text: 'Distancia Total (km)', color: '#888' },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            min: 0,
-                            max: 100,
-                            title: { display: true, text: 'Score Eficiencia', color: '#fff' },
-                            grid: { drawOnChartArea: false }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: { color: '#fff', font: { family: 'Space Grotesk', size: 10 } }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(10, 10, 15, 0.9)',
-                            titleFont: { family: 'Space Grotesk' },
-                            bodyFont: { family: 'Space Grotesk' }
-                        }
+                        x: { stacked: true, grid: { display: false }, ticks: { color: '#888', font: { family: 'Space Grotesk' } } },
+                        y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y1: { type: 'linear', position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } }
                     }
                 }
             });
@@ -3520,6 +3542,8 @@
                 }
             };
         }
+
+        document.getElementById('btn-sync-header').addEventListener('click', descargarDatosNube);
 
         const btnSaveSettings = document.getElementById('btn-save-settings');
         if (btnSaveSettings) {
