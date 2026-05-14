@@ -255,10 +255,12 @@
         }
 
         #charts {
-            height: 250px;
+            height: 350px; /* Un poco más alto para ver bien las semanas */
             background: var(--panel);
-            border-top: 1px solid #222;
-            padding: 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            margin-bottom: 20px;
         }
 
         .stat-box {
@@ -2716,27 +2718,99 @@
             const ctx = document.getElementById('telemetryChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
 
-            // Preparamos los datos por viaje
-            const labels = trips.map((t, i) => `Viaje ${i + 1}`);
-            const distances = trips.map(t => t.dist.toFixed(1));
-            const evs = trips.map(t => t.ev.toFixed(1));
+            // 1. Agrupar datos por semanas (ISO Week)
+            const semanas = {};
 
+            trips.forEach(t => {
+                const fecha = new Date(t.date);
+                // Obtenemos el número de semana
+                const primEnero = new Date(fecha.getFullYear(), 0, 1);
+                const nSemana = Math.ceil((((fecha - primEnero) / 86400000) + primEnero.getDay() + 1) / 7);
+                const label = `Sem ${nSemana}`;
+
+                if (!semanas[label]) {
+                    semanas[label] = { ev: 0, ice: 0, scoreTotal: 0, count: 0 };
+                }
+
+                semanas[label].ev += t.distEv;
+                semanas[label].ice += (t.dist - t.distEv);
+                semanas[label].scoreTotal += (t.individualScore || 0);
+                semanas[label].count++;
+            });
+
+            const labels = Object.keys(semanas);
+            const dataEV = labels.map(l => semanas[l].ev.toFixed(1));
+            const dataICE = labels.map(l => semanas[l].ice.toFixed(1));
+            const dataScore = labels.map(l => (semanas[l].scoreTotal / semanas[l].count).toFixed(0));
+
+            // 2. Renderizar Gráfica de Barras Apiladas
             chartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Distancia (km)', data: distances, backgroundColor: 'rgba(0, 212, 255, 0.5)', borderColor: '#00d4ff', borderWidth: 1, yAxisID: 'y' },
-                        { label: 'Uso EV (%)', type: 'line', data: evs, borderColor: '#00ff88', borderWidth: 2, pointRadius: 4, tension: 0.3, yAxisID: 'y1' }
+                        {
+                            label: 'Km Eléctrico',
+                            data: dataEV,
+                            backgroundColor: '#00ffaa', // Verde Neón
+                            stack: 'Stack 0',
+                        },
+                        {
+                            label: 'Km Gasolina',
+                            data: dataICE,
+                            backgroundColor: '#9b5de5', // Morado Térmico
+                            stack: 'Stack 0',
+                        },
+                        {
+                            label: 'Eficiencia Media',
+                            type: 'line',
+                            data: dataScore,
+                            borderColor: '#ffffff',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#ffffff',
+                            yAxisID: 'y1',
+                            tension: 0.4
+                        }
                     ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
+                    responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
-                        x: { display: true, grid: { display: false } },
-                        y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Distancia (km)', color: '#888' }, grid: { color: '#222' } },
-                        y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Eficiencia EV (%)', color: '#888' }, min: 0, max: 100, grid: { drawOnChartArea: false } }
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: '#888', font: { family: 'Space Grotesk' } }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: { display: true, text: 'Distancia Total (km)', color: '#888' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            min: 0,
+                            max: 100,
+                            title: { display: true, text: 'Score Eficiencia', color: '#fff' },
+                            grid: { drawOnChartArea: false }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { color: '#fff', font: { family: 'Space Grotesk', size: 10 } }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(10, 10, 15, 0.9)',
+                            titleFont: { family: 'Space Grotesk' },
+                            bodyFont: { family: 'Space Grotesk' }
+                        }
                     }
                 }
             });
