@@ -1801,6 +1801,22 @@
             <div class="main-panel">
                 <div id="mobile-mapa" class="mobile-view">
                     <div id="map"></div>
+                    <div id="map-info-footer" class="glass-panel" style="margin: 15px; padding: 15px; border-left: 4px solid var(--regen);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span class="stat-title" style="margin:0;">Análisis del Área</span>
+                            <span id="map-route-type" style="font-size: 0.6rem; background: var(--regen); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">EXPLORACIÓN</span>
+                        </div>
+                        <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div class="kpi-item" style="padding: 8px;">
+                                <div class="kpi-val" id="map-trips-count" style="font-size: 1rem;">0</div>
+                                <div class="kpi-label">Viajes en Zona</div>
+                            </div>
+                            <div class="kpi-item" style="padding: 8px;">
+                                <div class="kpi-val" id="map-ev-total" style="font-size: 1rem; color: var(--ev);">0.0</div>
+                                <div class="kpi-label">Km EV Totales</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div id="mobile-stats" class="mobile-view">
@@ -1809,6 +1825,13 @@
                     </div>
                     <div id="motor-radiography"></div>
                     <div id="topo-verdict"></div>
+                    <div id="records-table-container" class="glass-panel" style="margin: 15px; padding: 20px;">
+                        <h4 class="stat-title" style="color: var(--ev); margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">🏆 RÉCORDS DE CONDUCCIÓN</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif;">
+                            <tbody id="records-body">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2139,6 +2162,27 @@
             }
         }
 
+        function actualizarRecords(trips) {
+            if (trips.length === 0) return;
+
+            const maxDist = Math.max(...trips.map(t => t.dist));
+            const maxScore = Math.max(...trips.map(t => t.individualScore || 0));
+            const totalCO2 = trips.reduce((acc, t) => acc + (t.dist * (7.5/100) * 2.3) - (t.fuel * 2.3), 0);
+
+            const records = [
+                { label: "Ruta más larga", val: maxDist.toFixed(1) + " km", icon: "🛣️" },
+                { label: "Mejor Score", val: maxScore + " pts", icon: "💎" },
+                { label: "Ahorro CO2 Total", val: totalCO2.toFixed(1) + " kg", icon: "🍃" }
+            ];
+
+            document.getElementById('records-body').innerHTML = records.map(r => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 12px 0; color: #888; font-size: 0.8rem;">${r.icon} ${r.label}</td>
+                    <td style="padding: 12px 0; text-align: right; color: #fff; font-weight: 600;">${r.val}</td>
+                </tr>
+            `).join('');
+        }
+
         // --- ACTUALIZACIÓN DE MÉTRICAS GLOBALES ---
         function actualizarDashboard() {
             document.getElementById('motor-radiography').style.display = 'none';
@@ -2177,6 +2221,7 @@
 
             dibujarMapaGlobal(filteredTrips);
             dibujarGraficaGlobal(filteredTrips);
+            actualizarRecords(filteredTrips);
         }
 
         async function renderizarHistorial(trips) {
@@ -2742,6 +2787,23 @@
             }
 
             window.tripsPendientesMapa = null; // Limpiamos la tarea pendiente
+
+            // Actualizar panel informativo del mapa
+            const totalEvKm = trips.reduce((acc, t) => acc + t.distEv, 0);
+            document.getElementById('map-trips-count').innerText = trips.length;
+            document.getElementById('map-ev-total').innerText = totalEvKm.toFixed(1) + ' km';
+
+            // Lógica de tipo de ruta simplificada
+            const routeTypeTag = document.getElementById('map-route-type');
+            if (trips.length > 5) {
+                routeTypeTag.innerText = "ZONA HABITUAL";
+                routeTypeTag.style.background = "var(--ev)";
+                routeTypeTag.style.color = "#000";
+            } else {
+                routeTypeTag.innerText = "ZONA ESPORÁDICA";
+                routeTypeTag.style.background = "var(--regen)";
+                routeTypeTag.style.color = "#000";
+            }
         }
 
         // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
@@ -2872,22 +2934,25 @@
                             data: dataEV,
                             backgroundColor: '#00ffaa', // Verde Neón
                             stack: 'Stack 0',
+                            order: 2
                         },
                         {
                             label: 'Km Gasolina',
                             data: dataICE,
                             backgroundColor: '#9b5de5', // Morado Térmico
                             stack: 'Stack 0',
+                            order: 2
                         },
                         {
                             label: 'Eficiencia Media',
                             type: 'line',
                             data: dataScore,
                             borderColor: '#ffffff',
-                            borderWidth: 2,
+                            borderWidth: 3,
                             pointBackgroundColor: '#ffffff',
                             yAxisID: 'y1',
-                            tension: 0.4
+                            tension: 0.4,
+                            order: 1
                         }
                     ]
                 },
