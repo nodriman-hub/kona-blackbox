@@ -1500,6 +1500,7 @@
     <div id="dashboard">
         <header>
             <div style="display: flex; align-items: center;">
+                <button id="btn-open-settings" style="background:none; border:none; font-size:1.5rem; margin-right:15px; cursor:pointer;">⚙️</button>
                 <strong style="color: var(--hybrid);">📊 HISTÓRICO FORENSE</strong>
                 <span id="file-name" style="color:#888; margin-left:15px; font-size:0.9rem;">0 viajes</span>
 
@@ -1801,10 +1802,22 @@
                 document.getElementById('drop-zone').style.display = 'none';
                 document.getElementById('dashboard').style.display = 'flex';
 
-                actualizarDashboard();
-
-                // Forzar resize de los mapas y gráficos
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 200);
+                // Damos 300ms para que el Dashboard sea visible antes de calcular el mapa
+                setTimeout(() => {
+                    actualizarDashboard(); 
+                    
+                    // Forzamos al mapa a reconocer su nuevo tamaño
+                    if (mapInstance) {
+                        mapInstance.invalidateSize();
+                        // Si tenemos los límites guardados, los aplicamos
+                        if (window.lastGlobalBounds) {
+                            mapInstance.fitBounds(window.lastGlobalBounds, { padding: [30, 30] });
+                        }
+                    }
+                    
+                    window.dispatchEvent(new Event('resize'));
+                    if (typeof guardarResumenLocal === 'function') guardarResumenLocal(accumulatedTrips);
+                }, 300);
             } else {
                 alert("No se pudo procesar ningún viaje válido. Revisa la consola.");
             }
@@ -2239,6 +2252,7 @@
 
             // --- FÍSICA KONA HEV (~1550kg con pasajeros) ---
             const litrosExtra = (ascencionTotal / 100) * 0.12;
+            const costeExtra = litrosExtra * CONFIG.fuelPrice; // CONFIG.fuelPrice viene de tus Ajustes
             const kwhGratis = (descensoTotal / 100) * 0.25;
 
             if (ascencionTotal < 30 && descensoTotal < 30) {
@@ -2248,7 +2262,7 @@
             } else if (desnivelNeto > 50) {
                 icon = "⛰️";
                 borderColor = "var(--thermal)";
-                veredicto = `<strong>Penalización por Escalada:</strong> Vencer la gravedad te ha costado aproximadamente <strong>+${litrosExtra.toFixed(2)} Litros</strong> extra de gasolina, independientemente de tu estilo de conducción.`;
+                veredicto = `<strong>Penalización por Escalada:</strong> Subir estos metros te ha costado aproximadamente <strong>+${litrosExtra.toFixed(2)} Litros</strong> extra (${costeExtra.toFixed(2)}€), debido a la gravedad.`;
             } else if (desnivelNeto < -50) {
                 icon = "📉";
                 borderColor = "var(--regen)";
@@ -2829,17 +2843,15 @@
             setTimeout(() => settingsModal.style.display = 'none', 300);
         });
 
-        // --- BOTÓN PARA ABRIR AJUSTES ---
-        // Vamos a aprovechar el header para poner un icono de engranaje
-        const headerDiv = document.querySelector('header > div:first-child');
-        const btnAjustes = document.createElement('button');
-        btnAjustes.innerHTML = '⚙️';
-        btnAjustes.style.cssText = 'background:none; border:none; font-size:1.5rem; margin-right:15px; cursor:pointer;';
-        btnAjustes.onclick = () => {
-            settingsModal.style.display = 'flex';
-            setTimeout(() => settingsModal.style.opacity = '1', 10);
-        };
-        headerDiv.insertBefore(btnAjustes, headerDiv.firstChild);
+        // --- ABRIR AJUSTES ---
+        const btnOpenSettings = document.getElementById('btn-open-settings');
+        if (btnOpenSettings) {
+            btnOpenSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                modal.style.display = 'flex';
+                setTimeout(() => modal.style.opacity = '1', 10);
+            };
+        }
     </script>
 
     <div id="settings-modal" class="hidden"
