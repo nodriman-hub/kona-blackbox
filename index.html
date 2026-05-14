@@ -1733,7 +1733,11 @@
         const fileInput = document.getElementById('file-input');
 
         btnBrowse.addEventListener('click', () => fileInput.click());
-        document.getElementById('btn-add-csv').addEventListener('click', () => fileInput.click());
+
+        const btnAddCsv = document.getElementById('btn-add-csv');
+        if (btnAddCsv) {
+            btnAddCsv.addEventListener('click', () => fileInput.click());
+        }
 
         fileInput.addEventListener('change', (e) => {
             Array.from(e.target.files).forEach(file => procesarArchivo(file));
