@@ -2588,44 +2588,40 @@
         // --- DIBUJAR MAPA DE CALOR GLOBAL ---
         let mapInstance = null;
         function dibujarMapaGlobal(trips) {
+            const mapContainer = document.getElementById('map');
+
+            // Si el contenedor del mapa mide 0 (está oculto en otra pestaña), posponemos el dibujo
+            if (mapContainer.clientWidth === 0) {
+                window.tripsPendientesMapa = trips;
+                return; // Cortamos aquí para evitar el error del Canvas
+            }
+
             if (mapInstance) mapInstance.remove();
             if (trips.length === 0) return;
 
             mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
-
-            // Forzamos a Leaflet a actualizar su tamaño interno antes de pintar
             mapInstance.invalidateSize();
-
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
 
-            // Extraer todos los puntos para la capa de calor
             const heatPoints = [];
             trips.forEach(trip => {
                 trip.coords.forEach(c => {
-                    // Formato para leaflet-heat: [latitud, longitud, intensidad]
                     heatPoints.push([c.lat, c.lon, 1]);
                 });
             });
 
-            // Crear y añadir la capa térmica con estilo Cyberpunk
             L.heatLayer(heatPoints, {
-                radius: 12,
-                blur: 15,
-                maxZoom: 15,
-                gradient: {
-                    0.2: '#00d4ff', // Azul Cian (Baja densidad / Zonas esporádicas)
-                    0.5: '#00ff88', // Verde Neón (Media densidad)
-                    0.8: '#ffaa00', // Naranja (Alta densidad)
-                    1.0: '#ff4444'  // Rojo (Zonas críticas / Rutas diarias)
-                }
+                radius: 12, blur: 15, maxZoom: 15,
+                gradient: { 0.2: '#00d4ff', 0.5: '#00ff88', 0.8: '#ffaa00', 1.0: '#ff4444' }
             }).addTo(mapInstance);
 
-            // Ajustar la vista del mapa para englobar toda la zona de actividad
             if (heatPoints.length > 0) {
                 const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
                 mapInstance.fitBounds(bounds, { padding: [30, 30] });
-                window.lastGlobalBounds = bounds; // <--- NUEVO: GUARDAMOS LA FOTO DEL ENCUADRE
+                window.lastGlobalBounds = bounds;
             }
+
+            window.tripsPendientesMapa = null; // Limpiamos la tarea pendiente
         }
 
         // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
@@ -3046,9 +3042,14 @@
                     // 3. Cambiar la clase del contenedor para mostrar la vista correcta
                     appContainer.className = `grid-layout ${views[targetBtn.id]}`;
 
-                    // 4. ARREGLO DEL MAPA FANTASMA
+                    // 4. ARREGLO DEL MAPA FANTASMA Y ERROR DE CANVAS
                     if (targetBtn.id === 'nav-mapa') {
                         setTimeout(() => {
+                            // Si teníamos un mapa pendiente de dibujar porque estaba oculto, lo dibujamos ahora
+                            if (window.tripsPendientesMapa) {
+                                dibujarMapaGlobal(window.tripsPendientesMapa);
+                            }
+
                             if (mapInstance) {
                                 mapInstance.invalidateSize(); // Fuerza al mapa a medir la pantalla real
                                 if (window.lastGlobalBounds) {
