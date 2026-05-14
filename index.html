@@ -2330,12 +2330,24 @@
                 sumEv += t.ev;
             });
 
-            document.getElementById('val-dist').innerText = totalDist.toFixed(2);
-            document.getElementById('val-ev').innerText = (filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0).toFixed(1);
-            document.getElementById('val-ev-km').innerText = totalDistEv.toFixed(1);
-            document.getElementById('val-cons').innerText = (totalDist > 0 ? (totalFuel * 100) / totalDist : 0).toFixed(1);
-            document.getElementById('val-soc-diff').innerText = filteredTrips.length;
-            document.getElementById('file-name').innerText = `${filteredTrips.length} viajes mostrados`;
+            // --- ACTUALIZACIÓN DE TEXTOS EN DASHBOARD (BLINDADA) ---
+            const elValDist = document.getElementById('val-dist');
+            if (elValDist) elValDist.innerText = totalDist.toFixed(2);
+
+            const elValEv = document.getElementById('val-ev');
+            if (elValEv) elValEv.innerText = (filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0).toFixed(1);
+
+            const elValEvKm = document.getElementById('val-ev-km');
+            if (elValEvKm) elValEvKm.innerText = totalDistEv.toFixed(1);
+
+            const elValCons = document.getElementById('val-cons');
+            if (elValCons) elValCons.innerText = (totalDist > 0 ? (totalFuel * 100) / totalDist : 0).toFixed(1);
+
+            const elValSocDiff = document.getElementById('val-soc-diff');
+            if (elValSocDiff) elValSocDiff.innerText = filteredTrips.length;
+
+            const elFileName = document.getElementById('file-name');
+            if (elFileName) elFileName.innerText = `${filteredTrips.length} rutas`;
 
             // Actualizar Mini HUD
             const avgEv = filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0;
