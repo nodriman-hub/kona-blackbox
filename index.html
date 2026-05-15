@@ -255,7 +255,8 @@
         }
 
         #charts {
-            height: 350px; /* Un poco más alto para ver bien las semanas */
+            height: 350px;
+            /* Un poco más alto para ver bien las semanas */
             background: var(--panel);
             border-radius: 15px;
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -357,9 +358,14 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .trend-row:last-child { border-bottom: none; }
+        .trend-row:last-child {
+            border-bottom: none;
+        }
 
-        .trend-info { display: flex; flex-direction: column; }
+        .trend-info {
+            display: flex;
+            flex-direction: column;
+        }
 
         .trend-label {
             font-size: 0.7rem;
@@ -390,9 +396,20 @@
             gap: 4px;
         }
 
-        .trend-up { background: rgba(0, 255, 170, 0.15); color: var(--ev); }
-        .trend-down { background: rgba(155, 93, 229, 0.15); color: var(--thermal); }
-        .trend-neutral { background: rgba(255, 255, 255, 0.05); color: #888; }
+        .trend-up {
+            background: rgba(0, 255, 170, 0.15);
+            color: var(--ev);
+        }
+
+        .trend-down {
+            background: rgba(155, 93, 229, 0.15);
+            color: var(--thermal);
+        }
+
+        .trend-neutral {
+            background: rgba(255, 255, 255, 0.05);
+            color: #888;
+        }
 
         .stat-box {
             background: var(--panel);
@@ -1794,8 +1811,11 @@
         <header style="flex-direction: column; align-items: stretch; gap: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <div style="display: flex; align-items: center;">
-                    <button id="btn-open-settings" style="background:none; border:none; font-size:1.5rem; margin-right:10px; cursor:pointer;">⚙️</button>
-                    <button id="btn-sync-header" style="background:none; border:none; font-size:1.3rem; margin-right:10px; cursor:pointer;" title="Sincronizar Nube">🔄</button>
+                    <button id="btn-open-settings"
+                        style="background:none; border:none; font-size:1.5rem; margin-right:10px; cursor:pointer;">⚙️</button>
+                    <button id="btn-sync-header"
+                        style="background:none; border:none; font-size:1.3rem; margin-right:10px; cursor:pointer;"
+                        title="Sincronizar Nube">🔄</button>
                     <strong style="color: var(--ev); letter-spacing: 1px; font-size: 0.9rem;">KONA BLACKBOX</strong>
                 </div>
                 <span id="file-name" style="color:#666; font-size:0.75rem;">0 rutas</span>
@@ -1816,9 +1836,14 @@
                     <div class="mini-hud-container">
                         <div class="mini-hud-ring">
                             <svg class="mini-hud-svg" viewBox="0 0 100 100">
-                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="6" />
-                                <circle id="mini-arc-ev" cx="50" cy="50" r="45" fill="none" stroke="var(--ev)" stroke-width="6" stroke-dasharray="0 283" stroke-linecap="round" style="transition: stroke-dasharray 1s ease;" />
-                                <circle id="mini-arc-ice" cx="50" cy="50" r="45" fill="none" stroke="var(--thermal)" stroke-width="4" stroke-dasharray="0 283" stroke-linecap="round" style="transition: stroke-dasharray 1.2s ease;" />
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="6" />
+                                <circle id="mini-arc-ev" cx="50" cy="50" r="45" fill="none" stroke="var(--ev)"
+                                    stroke-width="6" stroke-dasharray="0 283" stroke-linecap="round"
+                                    style="transition: stroke-dasharray 1s ease;" />
+                                <circle id="mini-arc-ice" cx="50" cy="50" r="45" fill="none" stroke="var(--thermal)"
+                                    stroke-width="4" stroke-dasharray="0 283" stroke-linecap="round"
+                                    style="transition: stroke-dasharray 1.2s ease;" />
                             </svg>
                             <div class="mini-hud-data">
                                 <div class="mini-hud-val" id="mini-ev-val">0%</div>
@@ -1826,11 +1851,12 @@
                             </div>
                         </div>
 
-                        <div style="display: flex; width: 100%; justify-content: space-around; margin-top: 10px; font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem;">
+                        <div
+                            style="display: flex; width: 100%; justify-content: space-around; margin-top: 10px; font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem;">
                             <span style="color: var(--hybrid);">⛽ ICE: <span id="mini-ice-val">0</span>%</span>
                             <span style="color: var(--regen);">🔋 REG: <span id="mini-regen-val">0</span>%</span>
                         </div>
-                        
+
                         <div class="mini-hud-stats-row">
                             <div class="mini-stat-item">
                                 <div class="mini-stat-val" id="mini-total-dist">0.0</div>
@@ -1847,14 +1873,17 @@
                         </div>
                     </div>
 
-                    <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div class="kpi-grid"
+                        style="grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
                         <div class="stat-box" style="margin-bottom:0; border-left-color: var(--ev);">
                             <div class="stat-title">CO₂ Ahorrado</div>
-                            <div class="stat-val" style="font-size: 1.4rem; color: var(--ev);" id="home-co2-saved">0.0 kg</div>
+                            <div class="stat-val" style="font-size: 1.4rem; color: var(--ev);" id="home-co2-saved">0.0
+                                kg</div>
                         </div>
                         <div class="stat-box" style="margin-bottom:0; border-left-color: #ffaa00;">
                             <div class="stat-title">Dinero Ahorrado</div>
-                            <div class="stat-val" style="font-size: 1.4rem; color: #ffaa00;" id="home-money-saved">0.00 €</div>
+                            <div class="stat-val" style="font-size: 1.4rem; color: #ffaa00;" id="home-money-saved">0.00
+                                €</div>
                         </div>
                     </div>
 
@@ -1869,10 +1898,13 @@
             <div class="main-panel">
                 <div id="mobile-mapa" class="mobile-view">
                     <div id="map"></div>
-                    <div id="map-info-footer" class="glass-panel" style="margin: 15px; padding: 15px; border-left: 4px solid var(--regen);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div id="map-info-footer" class="glass-panel"
+                        style="margin: 15px; padding: 15px; border-left: 4px solid var(--regen);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <span class="stat-title" style="margin:0;">Análisis del Área</span>
-                            <span id="map-route-type" style="font-size: 0.6rem; background: var(--regen); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">EXPLORACIÓN</span>
+                            <span id="map-route-type"
+                                style="font-size: 0.6rem; background: var(--regen); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">EXPLORACIÓN</span>
                         </div>
                         <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); gap: 10px;">
                             <div class="kpi-item" style="padding: 8px;">
@@ -1880,7 +1912,8 @@
                                 <div class="kpi-label">Viajes en Zona</div>
                             </div>
                             <div class="kpi-item" style="padding: 8px;">
-                                <div class="kpi-val" id="map-ev-total" style="font-size: 1rem; color: var(--ev);">0.0</div>
+                                <div class="kpi-val" id="map-ev-total" style="font-size: 1rem; color: var(--ev);">0.0
+                                </div>
                                 <div class="kpi-label">Km EV Totales</div>
                             </div>
                         </div>
@@ -1894,14 +1927,18 @@
                     <div id="motor-radiography"></div>
                     <div id="topo-verdict"></div>
                     <div id="records-table-container" class="glass-panel" style="margin: 15px; padding: 20px;">
-                        <h4 class="stat-title" style="color: var(--ev); margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">🏆 RÉCORDS DE CONDUCCIÓN</h4>
-                        <table style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif;">
+                        <h4 class="stat-title"
+                            style="color: var(--ev); margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                            🏆 RÉCORDS DE CONDUCCIÓN</h4>
+                        <table
+                            style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif;">
                             <tbody id="records-body">
                             </tbody>
                         </table>
                     </div>
                     <div id="monthly-comparison-container" class="glass-panel" style="margin: 15px; padding: 15px;">
-                        <h4 class="stat-title" style="color: var(--regen); margin-bottom: 15px;">📊 COMPARATIVA VS MES ANTERIOR</h4>
+                        <h4 class="stat-title" style="color: var(--regen); margin-bottom: 15px;">📊 COMPARATIVA VS MES
+                            ANTERIOR</h4>
                         <div id="trend-list">
                         </div>
                     </div>
@@ -2212,18 +2249,18 @@
         }
 
         function actualizarMiniHUD(totalDist, avgEv, avgCons, numTrips, totalIcePercent) {
-            const C = 2 * Math.PI * 45; 
-            
+            const C = 2 * Math.PI * 45;
+
             // Actualizar textos SOLO si los elementos existen en el HTML
             const elEv = document.getElementById('mini-ev-val');
             if (elEv) elEv.innerText = `${avgEv.toFixed(0)}%`;
-            
+
             const elDist = document.getElementById('mini-total-dist');
             if (elDist) elDist.innerText = totalDist.toFixed(1);
-            
+
             const elCons = document.getElementById('mini-avg-cons');
             if (elCons) elCons.innerText = avgCons.toFixed(1);
-            
+
             const elTrips = document.getElementById('mini-total-trips');
             if (elTrips) elTrips.innerText = numTrips;
 
@@ -2237,7 +2274,7 @@
                 arcIce.style.transform = `rotate(${(avgEv / 100) * 360}deg)`;
                 arcIce.style.transformOrigin = 'center';
             }
-            
+
             // Nuevos datos
             const elIce = document.getElementById('mini-ice-val');
             if (elIce) elIce.innerText = totalIcePercent.toFixed(1);
@@ -2256,14 +2293,14 @@
 
             trips.forEach((t, index) => {
                 t.globalIndex = index; // Guardamos su posición
-                
+
                 if (t.dist > maxDistTrip.dist) maxDistTrip = t;
                 if ((t.individualScore || 0) > (maxScoreTrip.individualScore || 0)) maxScoreTrip = t;
                 // Min consumo: Filtramos viajes de más de 2km para que no gane un viaje de aparcar
-                if (t.dist > 2 && t.fuel < minConsumoTrip.fuel) minConsumoTrip = t; 
+                if (t.dist > 2 && t.fuel < minConsumoTrip.fuel) minConsumoTrip = t;
                 if (t.ev > maxEvTrip.ev) maxEvTrip = t;
 
-                const co2Ahorrado = (t.dist * (7.5/100) * 2.3) - (t.fuel * 2.3);
+                const co2Ahorrado = (t.dist * (7.5 / 100) * 2.3) - (t.fuel * 2.3);
                 totalCO2 += Math.max(0, co2Ahorrado);
                 totalAhorroEuros += Math.max(0, co2Ahorrado / 2.3 * CONFIG.fuelPrice); // Equiv en litros * precio
             });
@@ -2412,7 +2449,7 @@
             if (lastTripContainer && filteredTrips.length > 0) {
                 const ultimoViaje = filteredTrips[filteredTrips.length - 1];
                 window.viajesRécord['ultimo'] = ultimoViaje; // Lo guardamos para el clic
-                
+
                 lastTripContainer.innerHTML = `
                     <div class="trip-item" style="border-left: 4px solid var(--regen);" onclick="verDetalleViaje(window.viajesRécord['ultimo'])">
                         <div class="trip-info-main">
@@ -2587,10 +2624,10 @@
                 mapInstance.remove();
                 mapInstance = null;
             }
-            
+
             // ARREGLO 2: BLINDAJE LEAFLET (Borrado forzoso de caché)
             const mapCont = document.getElementById('map');
-            if (mapCont) mapCont._leaflet_id = null; 
+            if (mapCont) mapCont._leaflet_id = null;
 
             mapInstance = L.map('map').setView([trip.coords[0].lat, trip.coords[0].lon], 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
@@ -2981,7 +3018,7 @@
 
             // ARREGLO 3: ACTUALIZAR TEXTOS DEL PANEL SIEMPRE (Aunque el mapa no se vea aún)
             const totalEvKm = trips.reduce((acc, t) => acc + t.distEv, 0);
-            
+
             const countEl = document.getElementById('map-trips-count');
             if (countEl) countEl.innerText = trips.length;
 
@@ -3032,9 +3069,9 @@
             if (heatPoints.length > 0) {
                 const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
                 mapInstance.fitBounds(bounds, { padding: [30, 30] });
-                window.lastGlobalBounds = bounds; 
+                window.lastGlobalBounds = bounds;
             }
-            
+
             window.tripsPendientesMapa = null; // Tarea completada con éxito
         }
 
@@ -3143,7 +3180,7 @@
                     label = fecha.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }); // Agrupar por día
                 } else {
                     // Año o Todo: Agrupar por Mes
-                    label = fecha.toLocaleDateString(undefined, { month: 'short', year: '2-digit' }); 
+                    label = fecha.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
                 }
 
                 if (!agrupacion[label]) {
@@ -3303,9 +3340,13 @@
         // --- LÓGICA DEL SPLASH SCREEN Y MEMORIA ---
         function guardarResumenLocal(trips) {
             let totalEV = 0, totalICE = 0, totalRegen = 0;
+            let totalDist = 0, totalFuel = 0; // NUEVO: Acumuladores de consumo
 
-            // Contamos los puntos de cada modo para sacar un porcentaje global simple
             trips.forEach(t => {
+                totalDist += t.dist;
+                totalFuel += t.fuel;
+
+                // Contamos los puntos de cada modo para sacar un porcentaje global simple
                 t.coords.forEach(c => {
                     if (c.mode === 'ELECTRIC') totalEV++;
                     else if (c.mode === 'REGEN') totalRegen++;
@@ -3313,13 +3354,17 @@
                 });
             });
 
+            // NUEVO: Calcular la media global
+            const avgCons = totalDist > 0 ? (totalFuel * 100) / totalDist : 0;
             const total = totalEV + totalICE + totalRegen;
+
             if (total > 0) {
                 const resumen = {
                     ev: Math.round((totalEV / total) * 100),
                     ice: Math.round((totalICE / total) * 100),
                     regen: Math.round((totalRegen / total) * 100),
-                    totalSecs: total
+                    totalSecs: total,
+                    avgCons: avgCons.toFixed(1) // Guardamos el dato
                 };
                 localStorage.setItem('kona_last_summary', JSON.stringify(resumen));
                 actualizarPantallaSplash(resumen);
@@ -3335,6 +3380,12 @@
             document.getElementById('leg-ev').innerText = `${resumen.ev}%`;
             document.getElementById('leg-ice').innerText = `${resumen.ice}%`;
             document.getElementById('leg-regen').innerText = `${resumen.regen}%`;
+
+            // NUEVO: Pinta el consumo o muestra rayitas si no hay
+            const legFuel = document.getElementById('leg-fuel');
+            if (legFuel) {
+                legFuel.innerText = resumen.avgCons ? `${resumen.avgCons} L/100km` : '-- L/100km';
+            }
 
             // Time display
             const horas = Math.floor((resumen.totalSecs || 3438) / 3600);
@@ -3449,7 +3500,8 @@
             initHUD();
             const memoria = localStorage.getItem('kona_last_summary');
             if (memoria) actualizarPantallaSplash(JSON.parse(memoria));
-            else actualizarPantallaSplash({ ev: 65, ice: 30, regen: 5, totalSecs: 3438 });
+            // NUEVO: Añadimos avgCons a la plantilla por defecto
+            else actualizarPantallaSplash({ ev: 65, ice: 30, regen: 5, totalSecs: 3438, avgCons: "5.5" });
         });
 
         // El botón del Splash inicia la sincronización y luego oculta la pantalla
