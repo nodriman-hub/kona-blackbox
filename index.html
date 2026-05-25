@@ -2248,19 +2248,19 @@
             }
         }
 
-        function actualizarMiniHUD(totalDist, avgEv, avgCons, numTrips, totalIcePercent) {
-            const C = 2 * Math.PI * 45;
-
+        function actualizarMiniHUD(totalDist, avgEv, avgCons, numTrips, totalIcePercent, totalRegenPercent) {
+            const C = 2 * Math.PI * 45; 
+            
             // Actualizar textos SOLO si los elementos existen en el HTML
             const elEv = document.getElementById('mini-ev-val');
             if (elEv) elEv.innerText = `${avgEv.toFixed(0)}%`;
-
+            
             const elDist = document.getElementById('mini-total-dist');
             if (elDist) elDist.innerText = totalDist.toFixed(1);
-
+            
             const elCons = document.getElementById('mini-avg-cons');
             if (elCons) elCons.innerText = avgCons.toFixed(1);
-
+            
             const elTrips = document.getElementById('mini-total-trips');
             if (elTrips) elTrips.innerText = numTrips;
 
@@ -2274,10 +2274,13 @@
                 arcIce.style.transform = `rotate(${(avgEv / 100) * 360}deg)`;
                 arcIce.style.transformOrigin = 'center';
             }
-
-            // Nuevos datos
+            
+            // Nuevos datos secundarios bajo el anillo
             const elIce = document.getElementById('mini-ice-val');
             if (elIce) elIce.innerText = totalIcePercent.toFixed(1);
+
+            const elRegen = document.getElementById('mini-regen-val');
+            if (elRegen) elRegen.innerText = (totalRegenPercent || 0).toFixed(1);
         }
 
         function actualizarRecords(trips) {
@@ -2438,11 +2441,26 @@
             const elFileName = document.getElementById('file-name');
             if (elFileName) elFileName.innerText = `${filteredTrips.length} rutas`;
 
+            // --- CÁLCULO PRECISO DE PORCENTAJES (EV, ICE, REGEN) ---
+            let ptEV = 0, ptICE = 0, ptRegen = 0;
+            filteredTrips.forEach(t => {
+                t.coords.forEach(c => {
+                    if (c.mode === 'ELECTRIC') ptEV++;
+                    else if (c.mode === 'REGEN') ptRegen++;
+                    else ptICE++; // HYBRID, THERMAL, ENGINE_BRAKE
+                });
+            });
+            
+            const totalPt = ptEV + ptICE + ptRegen;
+            const realIcePercent = totalPt > 0 ? (ptICE / totalPt) * 100 : 0;
+            const realRegenPercent = totalPt > 0 ? (ptRegen / totalPt) * 100 : 0;
+
             // Actualizar Mini HUD
             const avgEv = filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0;
             const avgCons = totalDist > 0 ? (totalFuel * 100) / totalDist : 0;
-            const icePercent = 100 - avgEv;
-            actualizarMiniHUD(totalDist, avgEv, avgCons, filteredTrips.length, icePercent);
+            
+            // Llamamos a la función con el nuevo dato realRegenPercent
+            actualizarMiniHUD(totalDist, avgEv, avgCons, filteredTrips.length, realIcePercent, realRegenPercent);
 
             // --- RENDERIZAR ÚLTIMO VIAJE ---
             const lastTripContainer = document.getElementById('home-last-trip');
