@@ -1,0 +1,3698 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Sora:wght@200;300;400&display=swap"
+        rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kona BlackBox - Centro Forense</title>
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"
+        crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg: #000000;
+            --panel: rgba(10, 10, 15, 0.7);
+            --text: #ffffff;
+            --ev: #00ffaa;
+            /* Verde Neón del Splash */
+            --thermal: #9b5de5;
+            /* Morado del Splash */
+            --regen: #00d4ff;
+            /* Cian del Splash */
+            --hybrid: #00d4ff;
+        }
+
+        /* Base: sin bordes extra que causen línea verde */
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden;
+            width: 100vw;
+        }
+
+        /* Tarjetas con efecto cristal del Splash */
+        .stat-box,
+        .trip-item,
+        .route-group,
+        #topo-verdict,
+        .motor-stat {
+            background: var(--panel) !important;
+            backdrop-filter: blur(15px) saturate(1.2);
+            -webkit-backdrop-filter: blur(15px) saturate(1.2);
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border-radius: 12px;
+        }
+
+        /* Mejorar legibilidad en Pixel 9 Pro (pantallas altas/estrechas) */
+        .stat-title {
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+        }
+
+        .stat-val {
+            font-size: 1.8rem;
+            font-weight: 500;
+        }
+
+        /* Unificación estética Splash */
+        .stat-box {
+            border-left: 3px solid var(--ev) !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            background: rgba(10, 10, 15, 0.8) !important;
+        }
+
+        .time-tab {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.7rem !important;
+            padding: 8px 15px !important;
+        }
+
+        /* Corregir el scroll lateral apretado */
+        .time-tabs {
+            gap: 10px !important;
+            mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+        }
+
+        /* Zona de arrastrar y soltar */
+        #drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(ellipse at center, rgba(4, 7, 13, 0.85) 0%, #04070D 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1000;
+            transition: 0.4s ease;
+            box-sizing: border-box;
+        }
+
+        #drop-zone::before {
+            content: '';
+            position: absolute;
+            inset: 20px;
+            border: 1px dashed rgba(0, 255, 136, 0.3);
+            border-radius: 20px;
+            pointer-events: none;
+            transition: 0.4s ease;
+        }
+
+        #drop-zone.dragover {
+            background: radial-gradient(ellipse at center, rgba(0, 255, 136, 0.15) 0%, #04070D 100%);
+        }
+
+        #drop-zone.dragover::before {
+            border-color: rgba(0, 255, 136, 0.8);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.2) inset;
+        }
+
+        /* Botones Glassmorphism */
+        .glass-btn {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border-radius: 8px;
+            padding: 10px 20px;
+            min-height: 48px;
+            /* NUEVO: Altura mínima táctil */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .glass-btn.primary {
+            background: rgba(0, 212, 255, 0.1);
+            color: rgba(0, 212, 255, 1);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
+        }
+
+        .glass-btn.primary:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: rgba(0, 212, 255, 0.6);
+            box-shadow: 0 0 25px rgba(0, 212, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .glass-btn.ev-btn {
+            background: rgba(0, 255, 170, 0.1);
+            color: rgba(0, 255, 170, 1);
+            border: 1px solid rgba(0, 255, 170, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 170, 0.1);
+        }
+
+        .glass-btn.ev-btn:hover {
+            background: rgba(0, 255, 170, 0.2);
+            border-color: rgba(0, 255, 170, 0.6);
+            box-shadow: 0 0 25px rgba(0, 255, 170, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .glass-btn.outline {
+            background: rgba(255, 255, 255, 0.03);
+            color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-btn.outline:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Layout del Dashboard */
+        #dashboard {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 15px 20px;
+            background: rgba(4, 7, 13, 0.65);
+            backdrop-filter: blur(20px) saturate(1.2);
+            -webkit-backdrop-filter: blur(20px) saturate(1.2);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .grid-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .side-panel {
+            width: 350px;
+            background: var(--panel);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #222;
+        }
+
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Componentes */
+        #map {
+            flex: 1;
+            min-height: 300px;
+            /* Blindaje: imposible que sea 0 en móvil */
+            background: #000;
+        }
+
+        .leaflet-tile-pane {
+            filter: none !important;
+        }
+
+        .leaflet-overlay-pane svg path {
+            filter: drop-shadow(0 0 6px currentColor);
+            stroke-linecap: round;
+        }
+
+        #charts {
+            height: 350px;
+            /* Un poco más alto para ver bien las semanas */
+            background: var(--panel);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* --- MINI HUD WIDGET (INICIO) --- */
+        .mini-hud-container {
+            background: linear-gradient(180deg, rgba(0, 255, 170, 0.05) 0%, rgba(10, 10, 15, 0.8) 100%);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mini-hud-ring {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mini-hud-svg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .mini-hud-data {
+            text-align: center;
+            z-index: 10;
+        }
+
+        .mini-hud-val {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .mini-hud-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--ev);
+            margin-top: 5px;
+        }
+
+        .mini-hud-stats-row {
+            display: flex;
+            width: 100%;
+            justify-content: space-around;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 15px;
+        }
+
+        .mini-stat-item {
+            text-align: center;
+        }
+
+        .mini-stat-val {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .mini-stat-lab {
+            font-size: 0.55rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* --- TARJETAS DE TENDENCIA MENSUAL --- */
+        .trend-card {
+            background: rgba(15, 20, 30, 0.6);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .trend-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .trend-row:last-child {
+            border-bottom: none;
+        }
+
+        .trend-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .trend-label {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .trend-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .trend-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .trend-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .trend-up {
+            background: rgba(0, 255, 170, 0.15);
+            color: var(--ev);
+        }
+
+        .trend-down {
+            background: rgba(155, 93, 229, 0.15);
+            color: var(--thermal);
+        }
+
+        .trend-neutral {
+            background: rgba(255, 255, 255, 0.05);
+            color: #888;
+        }
+
+        .stat-box {
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-left: 4px solid var(--ev);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            background: rgba(20, 24, 35, 0.7);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Ajuste de legibilidad (De 0.6rem a 0.75rem mínimo) */
+        .stat-title,
+        .motor-stat-title,
+        .topo-label {
+            font-family: 'Sora', sans-serif;
+            font-size: 0.75rem;
+            /* NUEVO: Más legible */
+            color: rgba(180, 200, 220, 0.7);
+            text-transform: uppercase;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            margin-bottom: 5px;
+        }
+
+        .stat-val {
+            font-family: 'Space Grotesk', monospace;
+            font-size: 2rem;
+            font-weight: 500;
+            color: #fff;
+            text-shadow: 0 0 16px rgba(255, 255, 255, 0.2);
+        }
+
+        .time-tabs {
+            display: flex;
+            gap: 8px;
+            margin-left: 20px;
+        }
+
+        .time-tab {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(8px);
+            min-height: 48px;
+            /* NUEVO: Altura mínima táctil */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .time-tab:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .time-tab.active {
+            background: rgba(0, 212, 255, 0.15);
+            color: rgba(0, 212, 255, 1);
+            border-color: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+            text-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+        }
+
+        /* Lista de Viajes */
+        .trip-list {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .trip-item {
+            background: rgba(8, 10, 18, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .trip-item:hover {
+            border-color: rgba(0, 212, 255, 0.4);
+            background: rgba(12, 15, 25, 0.8);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .trip-item.record-ev {
+            border-left: 4px solid var(--ev);
+        }
+
+        .trip-item.record-regen {
+            border-left: 4px solid var(--regen);
+        }
+
+        .trip-info-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .trip-date {
+            font-family: 'Sora', sans-serif;
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .trip-dist {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .efficiency-bar-bg {
+            height: 4px;
+            background: #222;
+            width: 100%;
+            border-radius: 2px;
+            margin-top: 8px;
+        }
+
+        .efficiency-bar-fill {
+            height: 100%;
+            background: var(--ev);
+            box-shadow: 0 0 8px var(--ev);
+        }
+
+        .badge-record {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.6rem;
+            padding: 2px 5px;
+            border-radius: 3px;
+            background: var(--ev);
+            color: #000;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Acordeones y Grupos */
+        .route-group {
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(4, 6, 12, 0.4);
+            backdrop-filter: blur(8px);
+        }
+
+        .route-header {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            color: rgba(0, 212, 255, 0.9);
+            font-size: 0.9rem;
+            border-bottom: 1px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .route-header:hover {
+            background: rgba(0, 212, 255, 0.08);
+            color: #fff;
+            text-shadow: 0 0 8px rgba(0, 212, 255, 0.5);
+        }
+
+        .route-group.active .route-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .route-content {
+            display: none;
+            padding: 12px;
+            background: transparent;
+        }
+
+        .route-group.active .route-content {
+            display: block;
+        }
+
+        /* Insignias Dinámicas */
+        .badge-container {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+
+        .dynamic-badge {
+            font-size: 0.65rem;
+            padding: 3px 6px;
+            border-radius: 4px;
+            color: #000;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        /* Panel Radiografía del Motor */
+        #motor-radiography {
+            display: none;
+            /* Oculto en la vista global */
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 15px;
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .motor-stat {
+            background: rgba(8, 10, 18, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .motor-stat:hover {
+            transform: translateY(-2px);
+        }
+
+        /* motor-stat-title moved to common class */
+
+        .motor-stat-time {
+            font-family: 'Space Grotesk', monospace;
+            font-size: 1.6rem;
+            font-weight: 500;
+            color: #fff;
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+        }
+
+        .motor-stat-percent {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.9rem;
+            margin-top: 5px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           CINEMATIC INSTRUMENT CLUSTER — PREMIUM HUD SYSTEM
+           ═══════════════════════════════════════════════════════ */
+
+        /* --- Google Fonts override for HUD --- */
+        .hud-ring-container,
+        .hud-data-center,
+        .hud-legend {
+            font-family: 'Space Grotesk', 'Sora', system-ui, sans-serif;
+        }
+
+        /* ── SPLASH SCREEN BASE ── */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            /* Fondo por defecto (Escritorio) */
+            background-image: url('Gemini_Generated_Image_1t6ugn1t6ugn1t6u.png');
+            background-size: cover;
+            background-position: center;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.8s ease;
+            overflow: hidden;
+        }
+
+        /* Deep vignette — blends image edges into pure black */
+        #splash-screen::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center,
+                    rgba(4, 7, 13, 0.05) 0%,
+                    rgba(4, 7, 13, 0.55) 55%,
+                    rgba(4, 7, 13, 0.96) 85%,
+                    #04070D 100%);
+            z-index: 0;
+        }
+
+        /* Ambient floor glow — subtle upward light bleed */
+        #splash-screen::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 35%;
+            background: radial-gradient(ellipse at 50% 100%,
+                    rgba(0, 255, 136, 0.04) 0%,
+                    rgba(0, 180, 255, 0.02) 50%,
+                    transparent 80%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* ── MOBILE LAYOUT ── */
+        @media (max-width: 768px) {
+            #splash-screen {
+                background-image: url('Gemini_Generated_Image_v1jfa7v1jfa7v1jf.png');
+                background-size: cover;
+                background-repeat: no-repeat;
+                background-position: center center;
+            }
+
+            .hud-ring-container {
+                transform: translateY(-5vh) !important;
+                width: 88vmin !important;
+                height: 88vmin !important;
+            }
+        }
+
+        /* ═══════════════════════════════════════
+           HUD CONTAINER — 5-layer cluster
+           ═══════════════════════════════════════ */
+        .hud-ring-container {
+            position: relative;
+            width: 62vmin;
+            max-width: 480px;
+            height: 62vmin;
+            max-height: 480px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 24px;
+            transform: translateY(4vh);
+            z-index: 10;
+        }
+
+        /* ── LAYER 1: Atmospheric halo ── */
+        .hud-layer-halo {
+            position: absolute;
+            inset: -22%;
+            border-radius: 50%;
+            background: radial-gradient(circle,
+                    rgba(0, 255, 160, 0.055) 0%,
+                    rgba(0, 210, 255, 0.03) 40%,
+                    transparent 70%);
+            animation: haloBreath 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes haloBreath {
+
+            0%,
+            100% {
+                opacity: 0.7;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.04);
+            }
+        }
+
+        /* ── LAYER 2: Main energy ring (SVG-driven) ── */
+        .hud-svg-main {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            overflow: visible;
+        }
+
+        /* Energy ring sweep animation */
+        @keyframes energySweep {
+            0% {
+                stroke-dashoffset: 0;
+            }
+
+            100% {
+                stroke-dashoffset: -12;
+            }
+        }
+
+        /* Breathing glow on main ring */
+        @keyframes ringGlow {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.55)) drop-shadow(0 0 18px rgba(0, 255, 136, 0.18));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.85)) drop-shadow(0 0 30px rgba(0, 255, 136, 0.28));
+            }
+        }
+
+        .hud-ring-main-group {
+            animation: ringGlow 5s ease-in-out infinite;
+        }
+
+        /* ── LAYER 3: Segmented technical ring ── */
+        .hud-svg-segments {
+            position: absolute;
+            inset: -4%;
+            width: 108%;
+            height: 108%;
+            z-index: 4;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        /* Slow scan sweep */
+        @keyframes scanSweep {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hud-scan-group {
+            transform-origin: center;
+            animation: scanSweep 20s linear infinite;
+        }
+
+        /* ── LAYER 4: Inner rotating ring ── */
+        .hud-svg-inner {
+            position: absolute;
+            inset: 14%;
+            width: 72%;
+            height: 72%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        @keyframes innerRotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hud-inner-ring {
+            transform-origin: center;
+            animation: innerRotate 45s linear infinite;
+        }
+
+        /* ── LAYER 5: Orbital particles (canvas) ── */
+        #hud-particles {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        /* ── CENTER DATA AREA ── */
+        .hud-data-center {
+            position: relative;
+            z-index: 20;
+            text-align: center;
+            width: 52%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            container-type: inline-size;
+        }
+
+        /* Central vehicle silhouette */
+        .hud-center-graphic {
+            position: absolute;
+            inset: 20%;
+            z-index: 6;
+            pointer-events: none;
+            opacity: 0.07;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hud-center-graphic svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Topographic lines animation */
+        @keyframes topoFade {
+
+            0%,
+            100% {
+                opacity: 0.07;
+            }
+
+            50% {
+                opacity: 0.13;
+            }
+        }
+
+        .hud-center-graphic {
+            animation: topoFade 7s ease-in-out infinite;
+        }
+
+        /* Time readout — monumental */
+        .hud-time {
+            font-family: 'Space Grotesk', monospace;
+            font-weight: 300;
+            font-size: clamp(1.4rem, 16cqi, 3.6rem);
+            color: #ffffff;
+            line-height: 1;
+            white-space: nowrap;
+            letter-spacing: 0.05em;
+            text-shadow:
+                0 0 20px rgba(255, 255, 255, 0.15),
+                0 2px 12px rgba(0, 0, 0, 0.9);
+        }
+
+        .hud-label {
+            font-family: 'Sora', 'Space Grotesk', sans-serif;
+            font-size: 0.58rem;
+            font-weight: 300;
+            color: rgba(180, 200, 220, 0.6);
+            letter-spacing: 0.28em;
+            margin-top: 6px;
+            text-transform: uppercase;
+        }
+
+        .hud-ev-percent {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            font-size: clamp(0.9rem, 10cqi, 1.4rem);
+            color: #00ffaa;
+            margin-top: 12px;
+            letter-spacing: 0.12em;
+            text-shadow: 0 0 16px rgba(0, 255, 160, 0.5);
+        }
+
+        .hud-ev-label {
+            font-family: 'Sora', sans-serif;
+            font-size: 0.52rem;
+            font-weight: 300;
+            color: rgba(0, 255, 160, 0.45);
+            letter-spacing: 0.3em;
+            margin-top: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Divider line */
+        .hud-divider {
+            width: 40%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.3), transparent);
+            margin: 9px auto;
+        }
+
+        /* ── LEGEND BAR ── */
+        .hud-legend {
+            display: flex;
+            gap: 18px;
+            background: rgba(4, 7, 13, 0.55);
+            backdrop-filter: blur(12px) saturate(1.4);
+            -webkit-backdrop-filter: blur(12px) saturate(1.4);
+            padding: 14px 28px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow:
+                0 0 0 1px rgba(0, 255, 136, 0.04) inset,
+                0 8px 32px rgba(0, 0, 0, 0.6);
+            z-index: 10;
+        }
+
+        .hud-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 400;
+            color: rgba(210, 220, 230, 0.75);
+            letter-spacing: 0.06em;
+        }
+
+        .hud-legend-item span {
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .hud-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        /* ── LAUNCH BUTTON ── */
+        #btn-sync-splash {
+            margin-top: 36px;
+            background: rgba(0, 212, 255, 0.06);
+            color: rgba(0, 212, 255, 0.85);
+            border: 1px solid rgba(0, 212, 255, 0.22);
+            padding: 13px 36px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 400;
+            font-size: 0.78rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            backdrop-filter: blur(8px);
+            transition: all 0.4s ease;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 0 24px rgba(0, 212, 255, 0.06);
+        }
+
+        #btn-sync-splash:hover {
+            background: rgba(0, 212, 255, 0.12);
+            border-color: rgba(0, 212, 255, 0.45);
+            box-shadow: 0 0 32px rgba(0, 212, 255, 0.15);
+            color: rgba(0, 212, 255, 1);
+            transform: translateY(-1px);
+        }
+
+        /* ── ENERGY FLUCTUATION keyframe ── */
+        @keyframes energyFlicker {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            92% {
+                opacity: 1;
+            }
+
+            93% {
+                opacity: 0.8;
+            }
+
+            94% {
+                opacity: 1;
+            }
+
+            97% {
+                opacity: 0.9;
+            }
+
+            98% {
+                opacity: 1;
+            }
+        }
+
+        .hud-ring-container {
+            animation: energyFlicker 12s ease-in-out infinite;
+        }
+
+        /* --- RESPONSIVIDAD PARA MÓVILES (PWA NATIVA & SCROLL SEGURO) --- */
+        @media (max-width: 768px) {
+            #dashboard {
+                height: auto;
+            }
+
+            /* Permite scroll natural infinito */
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .time-tabs {
+                width: 100%;
+                overflow-x: auto;
+                padding-bottom: 10px;
+                margin-top: 15px;
+                /* Ocultar scrollbar */
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+
+            .time-tabs::-webkit-scrollbar {
+                display: none;
+            }
+
+            .grid-layout {
+                flex-direction: column;
+                overflow-y: visible;
+            }
+
+            /* 1. Lista de viajes controlada */
+            .side-panel {
+                width: 100%;
+                border-right: none;
+                border-bottom: 2px solid #222;
+                max-height: auto;
+                padding-bottom: 20px;
+                /* La lista nunca ocupará más de 1/3 de pantalla */
+            }
+
+            .main-panel {
+                height: auto;
+                display: flex;
+                flex-direction: column;
+                padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+            }
+
+            /* --- BOTTOM BAR NATIVA --- */
+            .bottom-nav {
+                display: flex;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                background: rgba(4, 7, 13, 0.95);
+                backdrop-filter: blur(20px) saturate(1.2);
+                -webkit-backdrop-filter: blur(20px) saturate(1.2);
+                border-top: 1px solid rgba(0, 212, 255, 0.12);
+                /* padding-bottom dinámico que esquiva la barra del Pixel */
+                padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+                z-index: 1000;
+                justify-content: space-around;
+                align-items: center;
+                box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.5);
+            }
+
+            .nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                color: rgba(255, 255, 255, 0.4);
+                background: transparent;
+                border: none;
+                font-family: 'Space Grotesk', sans-serif;
+                font-size: 0.7rem;
+                min-width: 70px;
+                min-height: 48px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                padding: 5px;
+            }
+
+            .nav-item.active {
+                color: var(--ev);
+                text-shadow: 0 0 10px rgba(0, 255, 170, 0.3);
+            }
+
+            .nav-item .icon-svg {
+                width: 24px;
+                height: 24px;
+                margin-bottom: 4px;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.1));
+                stroke: rgba(255, 255, 255, 0.5); /* Color apagado por defecto */
+            }
+
+            .nav-item.active .icon-svg {
+                transform: translateY(-3px) scale(1.1);
+                filter: drop-shadow(0 0 8px var(--ev));
+                stroke: var(--ev); /* Verde neón al activar */
+            }
+
+            /* Estilo para los iconos de la cabecera */
+            .header-icon {
+                width: 22px;
+                height: 22px;
+                stroke: rgba(255, 255, 255, 0.7);
+                transition: all 0.3s ease;
+            }
+            .header-icon:hover {
+                stroke: var(--ev);
+                filter: drop-shadow(0 0 5px var(--ev));
+            }
+
+            /* 2. Mapa controlado */
+            #map {
+                height: 45vh !important;
+                min-height: 45vh;
+            }
+
+            /* 3. Carruseles Deslizables para ahorrar espacio vertical */
+            #motor-radiography,
+            .topo-grid {
+                display: flex !important;
+                flex-direction: row;
+                overflow-x: auto;
+                scroll-snap-type: x mandatory;
+                gap: 12px;
+                padding: 10px 0;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Ocultar barra de scroll para estética limpia */
+            #motor-radiography::-webkit-scrollbar,
+            .topo-grid::-webkit-scrollbar {
+                display: none;
+            }
+
+            .motor-stat,
+            .topo-metric {
+                min-width: 160px;
+                /* Tarjetas anchas para que se lea todo */
+                scroll-snap-align: start;
+                flex-shrink: 0;
+            }
+
+            .hud-legend {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+            }
+
+            .hud-ring-container {
+                transform: translateY(-5vh) !important;
+                width: 85vmin !important;
+                height: 85vmin !important;
+            }
+
+            /* --- MOTOR DE NAVEGACIÓN MÓVIL --- */
+            /* Por defecto, ocultamos todo para luego encender solo lo necesario */
+            .mobile-view {
+                display: none !important;
+                width: 100%;
+                animation: fadeIn 0.3s ease;
+            }
+
+            /* Clases activadoras */
+            .show-inicio #mobile-inicio {
+                display: flex !important;
+                flex-direction: column;
+            }
+
+            .show-rutas #mobile-rutas {
+                display: block !important;
+            }
+
+            .show-mapa #mobile-mapa {
+                display: block !important;
+                height: 100%;
+            }
+
+            .show-stats #mobile-stats {
+                display: block !important;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* --- PANTALLA AISLADA DE DETALLE DE VIAJE --- */
+            #trip-detail-view {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100vh;
+                background: var(--bg);
+                z-index: 3000;
+                display: flex;
+                flex-direction: column;
+                transform: translateX(100%);
+                /* Oculta a la derecha por defecto */
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                overflow-y: auto;
+                padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+            }
+
+            #trip-detail-view.active {
+                transform: translateX(0);
+                /* Desliza hacia adentro */
+            }
+
+            .detail-header {
+                position: sticky;
+                top: 0;
+                background: rgba(4, 7, 13, 0.9);
+                backdrop-filter: blur(15px);
+                padding: 15px 20px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+                z-index: 10;
+            }
+
+            .btn-back {
+                background: rgba(255, 255, 255, 0.05);
+                border: none;
+                color: var(--ev);
+                font-size: 1.2rem;
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+            }
+        }
+
+        /* --- CONSOLA DE DEPURACIÓN MÓVIL --- */
+        #debug-console-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(155, 93, 229, 0.15);
+            color: var(--thermal);
+            border: 1px solid rgba(155, 93, 229, 0.4);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(155, 93, 229, 0.2);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        #debug-console-btn:hover {
+            opacity: 1;
+            background: rgba(155, 93, 229, 0.3);
+            box-shadow: 0 0 30px rgba(155, 93, 229, 0.4);
+            transform: scale(1.05);
+        }
+
+        #debug-console-panel {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            left: 20px;
+            top: 20px;
+            background: rgba(10, 12, 18, 0.85);
+            border: 1px solid rgba(155, 93, 229, 0.3);
+            border-radius: 12px;
+            z-index: 9998;
+            display: none;
+            flex-direction: column;
+            font-family: monospace;
+            font-size: 0.8rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(16px);
+        }
+
+        #debug-console-header {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+            color: var(--thermal);
+            font-weight: bold;
+            border-bottom: 1px solid rgba(155, 93, 229, 0.2);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        #debug-console-logs {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            color: var(--ev);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .log-error {
+            color: #ff4444;
+            margin-bottom: 5px;
+            border-left: 2px solid #ff4444;
+            padding-left: 5px;
+        }
+
+        .log-warn {
+            color: #ffaa00;
+            margin-bottom: 5px;
+        }
+
+        .log-info {
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        /* --- VEREDICTO TOPOGRÁFICO --- */
+        #topo-verdict {
+            display: none;
+            background: linear-gradient(135deg, rgba(15, 18, 28, 0.8), rgba(6, 8, 14, 0.9));
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
+            margin: 15px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        #topo-verdict::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        }
+
+        .topo-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 12px;
+        }
+
+        .topo-icon {
+            font-size: 1.8rem;
+            filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
+        }
+
+        .topo-title {
+            color: rgba(0, 212, 255, 0.9);
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            font-size: 0.95rem;
+            text-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+
+        .topo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 18px;
+        }
+
+        .topo-metric {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-left-width: 4px;
+            text-align: center;
+        }
+
+        .topo-val {
+            font-family: 'Space Grotesk', monospace;
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #fff;
+            text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+        }
+
+        /* topo-label moved to common class */
+
+        .topo-ai-verdict {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.6;
+            letter-spacing: 0.02em;
+        }
+
+        @media (max-width: 768px) {
+            .topo-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- EFFICIENCY SCORE & KPIs FORENSES --- */
+        #trip-score-card {
+            display: none;
+            background: linear-gradient(135deg, rgba(10, 15, 25, 0.9), rgba(4, 7, 13, 0.95));
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 255, 170, 0.2);
+            border-radius: 15px;
+            margin: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 255, 170, 0.1);
+        }
+
+        .score-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+        }
+
+        .score-circle {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: conic-gradient(var(--ev) 0%, rgba(255, 255, 255, 0.05) 0%);
+            box-shadow: 0 0 20px rgba(0, 255, 170, 0.2);
+        }
+
+        .score-circle::after {
+            content: '';
+            position: absolute;
+            width: 66px;
+            height: 66px;
+            background: #0a0c10;
+            border-radius: 50%;
+        }
+
+        .score-value {
+            position: relative;
+            z-index: 10;
+            font-family: 'Space Grotesk', monospace;
+            font-size: 2rem;
+            font-weight: 600;
+            color: #fff;
+            text-shadow: 0 0 10px var(--ev);
+        }
+
+        .score-title {
+            flex: 1;
+            margin-left: 20px;
+        }
+
+        .score-title h4 {
+            margin: 0;
+            color: var(--ev);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .score-title p {
+            margin: 5px 0 0 0;
+            color: #888;
+            font-size: 0.8rem;
+            font-family: 'Sora', sans-serif;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .kpi-item {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 12px 5px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .kpi-val {
+            font-family: 'Space Grotesk', monospace;
+            font-size: clamp(0.9rem, 4vw, 1.2rem);
+            /* Se adapta al tamaño de la pantalla */
+            color: #fff;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .kpi-label {
+            font-size: 0.65rem;
+            color: #666;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="splash-screen">
+        <div class="hud-ring-container">
+
+            <!-- LAYER 1: Atmospheric halo -->
+            <div class="hud-layer-halo"></div>
+
+            <!-- LAYER 5: Orbital particles canvas (behind main ring visually) -->
+            <canvas id="hud-particles"></canvas>
+
+            <!-- LAYER 2: Main energy ring — SVG conic arcs -->
+            <svg class="hud-svg-main" viewBox="0 0 200 200" id="hud-svg-energy">
+                <defs>
+                    <filter id="glow-ev">
+                        <feGaussianBlur stdDeviation="2.2" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter id="glow-regen">
+                        <feGaussianBlur stdDeviation="1.8" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                    <filter id="glow-thermal">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+                <g class="hud-ring-main-group">
+                    <!-- EV arc (neon green) — filled by JS -->
+                    <circle id="arc-ev" cx="100" cy="100" r="88" fill="none" stroke="#00ffaa" stroke-width="7"
+                        stroke-linecap="round" stroke-dasharray="0 553" stroke-dashoffset="138" filter="url(#glow-ev)"
+                        opacity="0.92" style="transition: stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1);" />
+                    <!-- Regen arc (cyan) -->
+                    <circle id="arc-regen" cx="100" cy="100" r="88" fill="none" stroke="#00d4ff" stroke-width="5"
+                        stroke-linecap="round" stroke-dasharray="0 553" stroke-dashoffset="138"
+                        filter="url(#glow-regen)" opacity="0.85"
+                        style="transition: stroke-dasharray 1.4s cubic-bezier(0.4,0,0.2,1);" />
+                    <!-- Thermal arc (purple-warm) -->
+                    <circle id="arc-thermal" cx="100" cy="100" r="88" fill="none" stroke="#9b5de5" stroke-width="4.5"
+                        stroke-linecap="round" stroke-dasharray="0 553" stroke-dashoffset="138"
+                        filter="url(#glow-thermal)" opacity="0.7"
+                        style="transition: stroke-dasharray 1.6s cubic-bezier(0.4,0,0.2,1);" />
+                    <!-- Base track ring -->
+                    <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="7" />
+                    <!-- Luminosity variation blobs (irregular brightness) -->
+                    <circle id="arc-lum1" cx="100" cy="100" r="88" fill="none" stroke="rgba(0,255,160,0.18)"
+                        stroke-width="11" stroke-linecap="round" stroke-dasharray="30 523" stroke-dashoffset="80"
+                        opacity="0.6" />
+                    <circle id="arc-lum2" cx="100" cy="100" r="88" fill="none" stroke="rgba(0,200,255,0.12)"
+                        stroke-width="9" stroke-linecap="round" stroke-dasharray="18 535" stroke-dashoffset="250"
+                        opacity="0.5" />
+                </g>
+            </svg>
+
+            <!-- LAYER 3: Technical segmented ring (aerospace/radar) -->
+            <svg class="hud-svg-segments" viewBox="0 0 220 220">
+                <defs>
+                    <filter id="seg-blur">
+                        <feGaussianBlur stdDeviation="0.4" />
+                    </filter>
+                </defs>
+                <!-- Outer dashed technical ring -->
+                <circle cx="110" cy="110" r="104" fill="none" stroke="rgba(0,212,255,0.3)" stroke-width="0.8"
+                    stroke-dasharray="2 6" filter="url(#seg-blur)" />
+                <!-- Major tick marks (every 30°) -->
+                <g id="hud-ticks" stroke="rgba(0,212,255,0.55)" stroke-width="1.2" stroke-linecap="round"></g>
+                <!-- Minor tick marks (every 10°) -->
+                <g id="hud-ticks-minor" stroke="rgba(0,212,255,0.2)" stroke-width="0.6" stroke-linecap="round"></g>
+                <!-- Scanning sweep arc -->
+                <g class="hud-scan-group">
+                    <path d="M110,110 L110,6 A104,104 0 0,1 179,37 Z" fill="url(#scan-grad)" opacity="0.06" />
+                    <defs>
+                        <radialGradient id="scan-grad" cx="0%" cy="0%">
+                            <stop offset="0%" stop-color="#00d4ff" stop-opacity="0.5" />
+                            <stop offset="100%" stop-color="#00d4ff" stop-opacity="0" />
+                        </radialGradient>
+                    </defs>
+                </g>
+                <!-- Partial gap arc (precision instrument look) -->
+                <circle cx="110" cy="110" r="99" fill="none" stroke="rgba(0,255,136,0.12)" stroke-width="0.6"
+                    stroke-dasharray="60 600" stroke-dashoffset="0" />
+            </svg>
+
+            <!-- LAYER 4: Inner rotating ring -->
+            <svg class="hud-svg-inner" viewBox="0 0 100 100">
+                <g class="hud-inner-ring">
+                    <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(0,212,255,0.12)" stroke-width="0.6"
+                        stroke-dasharray="4 8" />
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(0,255,136,0.08)" stroke-width="0.4"
+                        stroke-dasharray="1.5 12" />
+                    <!-- Inner cardinal marks -->
+                    <line x1="50" y1="4" x2="50" y2="9" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                    <line x1="96" y1="50" x2="91" y2="50" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                    <line x1="50" y1="96" x2="50" y2="91" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                    <line x1="4" y1="50" x2="9" y2="50" stroke="rgba(0,212,255,0.4)" stroke-width="0.8" />
+                </g>
+            </svg>
+
+            <!-- Center vehicle silhouette (subtle) -->
+            <div class="hud-center-graphic">
+                <!-- Abstract hybrid power-flow / topographic rings -->
+                <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Topographic contour lines -->
+                    <ellipse cx="60" cy="40" rx="56" ry="34" stroke="rgba(0,255,136,0.9)" stroke-width="0.5" />
+                    <ellipse cx="60" cy="40" rx="44" ry="26" stroke="rgba(0,255,136,0.8)" stroke-width="0.4" />
+                    <ellipse cx="60" cy="40" rx="32" ry="18" stroke="rgba(0,212,255,0.8)" stroke-width="0.4" />
+                    <ellipse cx="60" cy="40" rx="20" ry="11" stroke="rgba(0,212,255,0.7)" stroke-width="0.4" />
+                    <ellipse cx="60" cy="40" rx="10" ry="5" stroke="rgba(155,93,229,0.7)" stroke-width="0.4" />
+                    <!-- Kona silhouette outline (simplified) -->
+                    <path
+                        d="M18,50 C20,42 30,32 42,30 L54,27 C57,26 63,26 66,27 L78,30 C90,32 100,42 102,50 L104,55 L16,55 Z"
+                        stroke="rgba(255,255,255,0.7)" stroke-width="0.6" fill="rgba(0,20,40,0.2)" />
+                    <path d="M38,30 C42,20 52,18 60,18 C68,18 78,20 82,30" stroke="rgba(255,255,255,0.5)"
+                        stroke-width="0.5" />
+                    <!-- Wheels -->
+                    <circle cx="32" cy="55" r="7" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                    <circle cx="88" cy="55" r="7" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                </svg>
+            </div>
+
+            <!-- CENTER DATA -->
+            <div class="hud-data-center">
+                <div class="hud-time" id="splash-time-val">0:00:00</div>
+                <div class="hud-divider"></div>
+                <div class="hud-label">Tiempo Conducido</div>
+                <div class="hud-ev-percent"><span id="splash-ev-val">65</span>%</div>
+                <div class="hud-ev-label">Modo Eléctrico</div>
+            </div>
+
+        </div><!-- end hud-ring-container -->
+
+        <!-- Legend bar -->
+        <div class="hud-legend" style="flex-wrap: wrap; justify-content: center; gap: 15px;">
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background:#00ffaa; box-shadow: 0 0 6px #00ffaa;"></div>
+                Eléctrico <span id="leg-ev">65%</span>
+            </div>
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background:#9b5de5; box-shadow: 0 0 6px #9b5de5;"></div>
+                Combustión <span id="leg-ice">30%</span>
+            </div>
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background:#00d4ff; box-shadow: 0 0 6px #00d4ff;"></div>
+                Regeneración <span id="leg-regen">5%</span>
+            </div>
+            <div class="hud-legend-item">
+                <div class="hud-dot" style="background:#ffaa00; box-shadow: 0 0 6px #ffaa00;"></div>
+                Media <span id="leg-fuel">-- L/100km</span>
+            </div>
+        </div>
+
+        <button id="btn-sync-splash">
+            Iniciar Enlace Satelital
+        </button>
+    </div>
+
+    <div id="drop-zone">
+        <h1
+            style="color: var(--ev); letter-spacing: 0.15em; font-family: 'Space Grotesk', sans-serif; text-shadow: 0 0 20px rgba(0, 255, 170, 0.4);">
+            KONA BLACKBOX FORENSICS</h1>
+        <button id="btn-sync-cloud-main" class="glass-btn primary"
+            style="font-size: 1.1rem; padding: 15px 30px; margin-top: 20px;">
+            ☁️ SINCRONIZAR CON LA NUBE
+        </button>
+        <p style="color: rgba(255,255,255,0.4); margin: 20px 0; font-family: 'Sora', sans-serif; letter-spacing: 2px;">O
+        </p>
+        <p
+            style="color: rgba(255,255,255,0.6); font-size: 0.95rem; margin-bottom: 15px; font-family: 'Space Grotesk', sans-serif;">
+            Cargar archivo .CSV localmente</p>
+        <button id="btn-browse" class="glass-btn outline">
+            SELECCIONAR ARCHIVO
+        </button>
+        <input type="file" id="file-input" accept=".csv" style="display: none;">
+    </div>
+
+    <div id="dashboard">
+        <header style="flex-direction: column; align-items: stretch; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div style="display: flex; align-items: center;">
+                    <button id="btn-open-settings" style="background:none; border:none; margin-right:10px; cursor:pointer;">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+                    <button id="btn-sync-header" style="background:none; border:none; margin-right:10px; cursor:pointer;" title="Sincronizar Nube">
+                        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 2v6h-6"></path>
+                            <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                            <path d="M3 22v-6h6"></path>
+                            <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                        </svg>
+                    </button>
+                    <strong style="color: var(--ev); letter-spacing: 1px; font-size: 0.9rem;">KONA BLACKBOX</strong>
+                </div>
+                <span id="file-name" style="color:#666; font-size:0.75rem;">0 rutas</span>
+            </div>
+
+            <div class="time-tabs" id="view-tabs" style="justify-content: flex-start; padding: 2px 0;">
+                <button class="time-tab active" data-period="all">TODO</button>
+                <button class="time-tab" data-period="day">24H</button>
+                <button class="time-tab" data-period="week">7 DÍAS</button>
+                <button class="time-tab" data-period="month">30 DÍAS</button>
+                <button class="time-tab" data-period="year">365 DÍAS</button>
+            </div>
+        </header>
+
+        <div class="grid-layout show-inicio" id="app-container">
+            <div class="side-panel">
+                <div id="mobile-inicio" class="mobile-view">
+                    <div class="mini-hud-container">
+                        <div class="mini-hud-ring">
+                            <svg class="mini-hud-svg" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.05)"
+                                    stroke-width="6" />
+                                <circle id="mini-arc-ev" cx="50" cy="50" r="45" fill="none" stroke="var(--ev)"
+                                    stroke-width="6" stroke-dasharray="0 283" stroke-linecap="round"
+                                    style="transition: stroke-dasharray 1s ease;" />
+                                <circle id="mini-arc-ice" cx="50" cy="50" r="45" fill="none" stroke="var(--thermal)"
+                                    stroke-width="4" stroke-dasharray="0 283" stroke-linecap="round"
+                                    style="transition: stroke-dasharray 1.2s ease;" />
+                            </svg>
+                            <div class="mini-hud-data">
+                                <div class="mini-hud-val" id="mini-ev-val">0%</div>
+                                <div class="mini-hud-label">EV GLOBAL</div>
+                            </div>
+                        </div>
+
+                        <div
+                            style="display: flex; width: 100%; justify-content: space-around; margin-top: 10px; font-family: 'Space Grotesk', sans-serif; font-size: 0.8rem;">
+                            <span style="color: var(--hybrid);">⛽ ICE: <span id="mini-ice-val">0</span>%</span>
+                            <span style="color: var(--regen);">🔋 REG: <span id="mini-regen-val">0</span>%</span>
+                        </div>
+
+                        <div class="mini-hud-stats-row">
+                            <div class="mini-stat-item">
+                                <div class="mini-stat-val" id="mini-total-dist">0.0</div>
+                                <div class="mini-stat-lab">KM TOTAL</div>
+                            </div>
+                            <div class="mini-stat-item">
+                                <div class="mini-stat-val" style="color: var(--thermal);" id="mini-avg-cons">0.0</div>
+                                <div class="mini-stat-lab">L/100KM</div>
+                            </div>
+                            <div class="mini-stat-item">
+                                <div class="mini-stat-val" style="color: var(--regen);" id="mini-total-trips">0</div>
+                                <div class="mini-stat-lab">RUTAS</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="kpi-grid"
+                        style="grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+                        <div class="stat-box" style="margin-bottom:0; border-left-color: var(--ev);">
+                            <div class="stat-title">CO₂ Ahorrado</div>
+                            <div class="stat-val" style="font-size: 1.4rem; color: var(--ev);" id="home-co2-saved">0.0
+                                kg</div>
+                        </div>
+                        <div class="stat-box" style="margin-bottom:0; border-left-color: #ffaa00;">
+                            <div class="stat-title">Dinero Ahorrado</div>
+                            <div class="stat-val" style="font-size: 1.4rem; color: #ffaa00;" id="home-money-saved">0.00
+                                €</div>
+                        </div>
+                    </div>
+
+                    <h4 class="stat-title" style="color: var(--regen); margin-bottom: 10px;">🕒 ÚLTIMO TRAYECTO</h4>
+                    <div id="home-last-trip"></div>
+                </div>
+
+                <div id="mobile-rutas" class="mobile-view">
+                </div>
+            </div>
+
+            <div class="main-panel">
+                <div id="mobile-mapa" class="mobile-view">
+                    <div id="map"></div>
+                    <div id="map-info-footer" class="glass-panel"
+                        style="margin: 15px; padding: 15px; border-left: 4px solid var(--regen);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span class="stat-title" style="margin:0;">Análisis del Área</span>
+                            <span id="map-route-type"
+                                style="font-size: 0.6rem; background: var(--regen); color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">EXPLORACIÓN</span>
+                        </div>
+                        <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <div class="kpi-item" style="padding: 8px;">
+                                <div class="kpi-val" id="map-trips-count" style="font-size: 1rem;">0</div>
+                                <div class="kpi-label">Viajes en Zona</div>
+                            </div>
+                            <div class="kpi-item" style="padding: 8px;">
+                                <div class="kpi-val" id="map-ev-total" style="font-size: 1rem; color: var(--ev);">0.0
+                                </div>
+                                <div class="kpi-label">Km EV Totales</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="mobile-stats" class="mobile-view">
+                    <div id="charts">
+                        <canvas id="telemetryChart"></canvas>
+                    </div>
+                    <div id="motor-radiography"></div>
+                    <div id="topo-verdict"></div>
+                    <div id="records-table-container" class="glass-panel" style="margin: 15px; padding: 20px;">
+                        <h4 class="stat-title"
+                            style="color: var(--ev); margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                            🏆 RÉCORDS DE CONDUCCIÓN</h4>
+                        <table
+                            style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', sans-serif;">
+                            <tbody id="records-body">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="monthly-comparison-container" class="glass-panel" style="margin: 15px; padding: 15px;">
+                        <h4 class="stat-title" style="color: var(--regen); margin-bottom: 15px;">📊 COMPARATIVA VS MES
+                            ANTERIOR</h4>
+                        <div id="trend-list">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="trip-detail-view">
+            <div class="detail-header">
+                <button class="btn-back" id="btn-close-detail">⬅</button>
+                <h3 style="margin:0; font-family: 'Space Grotesk', sans-serif; font-size: 1rem;">Análisis de Ruta</h3>
+            </div>
+            <div id="detail-content" style="padding: 15px;">
+                <div id="trip-score-card"></div>
+            </div>
+        </div>
+
+        <nav class="bottom-nav">
+            <button class="nav-item active" id="nav-inicio">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+                    <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+                    <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+                    <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+                </svg>
+                <span>Inicio</span>
+            </button>
+            <button class="nav-item" id="nav-rutas">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="6" cy="19" r="3"></circle>
+                    <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+                    <circle cx="18" cy="5" r="3"></circle>
+                </svg>
+                <span>Rutas</span>
+            </button>
+            <button class="nav-item" id="nav-mapa">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+                    <line x1="9" y1="3" x2="9" y2="18"></line>
+                    <line x1="15" y1="6" x2="15" y2="21"></line>
+                </svg>
+                <span>Mapa</span>
+            </button>
+            <button class="nav-item" id="nav-stats">
+                <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <span>Stats</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Consola de depuración: debe estar ANTES del script para que getElementById funcione -->
+    <button id="debug-console-btn">🐛</button>
+    <div id="debug-console-panel">
+        <div id="debug-console-header">
+            <span>TERMINAL DE DEPURACIÓN</span>
+            <button id="btn-clear-logs"
+                style="background:none; border:1px solid var(--thermal); color:var(--thermal); border-radius:3px; cursor:pointer;">Limpiar</button>
+        </div>
+        <div id="debug-console-logs"></div>
+    </div>
+
+    <div id="settings-modal" class="hidden"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 4000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;">
+        <div
+            style="background: rgba(10, 12, 18, 0.95); border: 1px solid var(--ev); border-radius: 15px; padding: 25px; width: 85%; max-width: 400px; box-shadow: 0 0 30px rgba(0, 255, 170, 0.2);">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <h3 style="margin: 0; color: var(--ev); font-family: 'Space Grotesk', sans-serif; letter-spacing: 1px;">
+                    ⚙️ CALIBRACIÓN DEL VEHÍCULO</h3>
+                <button id="btn-close-settings"
+                    style="background: none; border: none; color: #fff; font-size: 1.5rem; cursor: pointer;">×</button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <label
+                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">CONSUMO
+                    MEDIO ESTIMADO (L/100km)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-fuel-rate" step="0.1" value="5.5"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
+                </div>
+                <small style="color: #666; font-size: 0.7rem; display: block; margin-top: 5px;">Se usará si el OBD no
+                    registra el consumo real.</small>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <label
+                    style="display: block; color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 8px; font-family: 'Sora', sans-serif;">PRECIO
+                    DEL COMBUSTIBLE (€/L)</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="number" id="input-fuel-price" step="0.01" value="1.65"
+                        style="width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 12px; border-radius: 8px; font-family: 'Space Grotesk', monospace; font-size: 1.2rem; text-align: center;">
+                </div>
+            </div>
+
+            <button id="btn-save-settings" class="glass-btn primary"
+                style="width: 100%; font-weight: bold; background: rgba(0, 255, 170, 0.15); color: var(--ev); border-color: var(--ev);">
+                GUARDAR CALIBRACIÓN
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- INTERCEPTOR DE CONSOLA (DEBE IR AL PRINCIPIO) ---
+        const logContainer = document.getElementById('debug-console-logs');
+        const debugPanel = document.getElementById('debug-console-panel');
+
+        // Mostrar/Ocultar consola
+        document.getElementById('debug-console-btn').addEventListener('click', () => {
+            debugPanel.style.display = debugPanel.style.display === 'flex' ? 'none' : 'flex';
+        });
+        // Limpiar consola
+        document.getElementById('btn-clear-logs').addEventListener('click', () => logContainer.innerHTML = '');
+
+        function appendToConsole(msg, type) {
+            const div = document.createElement('div');
+            div.className = `log-${type}`;
+
+            // Destripamos los errores nativos para que no devuelvan {}
+            const text = Array.from(msg).map(arg => {
+                if (arg instanceof Error) return arg.message;
+                if (typeof arg === 'object') {
+                    const str = JSON.stringify(arg, null, 2);
+                    return (str === '{}' && arg.message) ? arg.message : str;
+                }
+                return arg;
+            }).join(' ');
+
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Guardamos las funciones originales
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        // Sobrescribimos
+        console.log = function (...args) { appendToConsole(args, 'info'); originalLog.apply(console, args); };
+        console.warn = function (...args) { appendToConsole(args, 'warn'); originalWarn.apply(console, args); };
+        console.error = function (...args) { appendToConsole(args, 'error'); originalError.apply(console, args); };
+
+        // Capturar errores fatales no controlados y bloqueos CORS/Red
+        window.onerror = function (message, source, lineno, colno, error) {
+            console.error("ERROR CRÍTICO:", message, "en", source, "Línea:", lineno);
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function (event) {
+            console.error("PROMESA RECHAZADA (Posible fallo de Red/CORS):", event.reason);
+        });
+        // --- FIN DEL INTERCEPTOR ---
+
+        // --- CONFIGURACIÓN DEL DRAG & DROP ---
+        const dropZone = document.getElementById('drop-zone');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            procesarArchivo(file);
+        });
+
+        // --- CARGA MANUAL DE ARCHIVO ---
+        const btnBrowse = document.getElementById('btn-browse');
+        const fileInput = document.getElementById('file-input');
+
+        btnBrowse.addEventListener('click', () => fileInput.click());
+
+        const btnAddCsv = document.getElementById('btn-add-csv');
+        if (btnAddCsv) {
+            btnAddCsv.addEventListener('click', () => fileInput.click());
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            Array.from(e.target.files).forEach(file => procesarArchivo(file));
+        });
+
+        // --- PROCESAMIENTO CON PAPAPARSE ---
+        function procesarArchivo(file) {
+            if (file && file.name.endsWith('.csv')) {
+                Papa.parse(file, {
+                    header: true, // Automáticamente usa la primera fila como nombres de variables
+                    skipEmptyLines: true,
+                    complete: function (results) {
+                        procesarDatos(results.data);
+                    },
+                    error: function (error) {
+                        alert("Error de PapaParse: " + error.message);
+                    }
+                });
+            } else {
+                alert("Por favor, selecciona un archivo .CSV válido generado por Supabase.");
+            }
+        }
+
+        // --- ACUMULADOR HISTÓRICO ---
+        let accumulatedTrips = [];
+        window.viajesRécord = {}; // Almacén temporal para los clics
+        let currentPeriod = 'all';
+
+        // Escuchar pestañas de tiempo
+        document.querySelectorAll('.time-tab').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.time-tab').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentPeriod = e.target.dataset.period;
+                actualizarDashboard();
+            });
+        });
+
+        // --- NUEVO PROCESAMIENTO FORENSE (Iterador de filas) ---
+        function procesarDatos(filas) {
+            if (!filas || filas.length === 0) return;
+
+            accumulatedTrips = []; // Limpiamos si cargas un archivo nuevo
+
+            filas.forEach((fila, index) => {
+                // Si la fila no tiene route_data, la ignoramos
+                if (!fila.route_data) return;
+
+                try {
+                    // Primero intentamos desempaquetar el JSON normalmente
+                    let telemetriaRaw = [];
+                    try {
+                        telemetriaRaw = JSON.parse(fila.route_data);
+                    } catch (parseError) {
+                        console.warn(`JSON truncado o malformado en la fila ${index + 2}. Intentando recuperación forense...`);
+
+                        // Si falla (ej: por límite de exportación en CSV de Supabase, que corta campos muy largos),
+                        // extraemos todos los objetos de coordenadas completos mediante expresiones regulares.
+                        // Esto rescatará todas las coordenadas válidas antes de que el JSON se corte.
+                        const matches = fila.route_data.match(/\{[^{}]+\}/g);
+                        if (matches) {
+                            matches.forEach(m => {
+                                try { telemetriaRaw.push(JSON.parse(m)); } catch (e) { }
+                            });
+                        }
+                    }
+
+                    const coordenadas = [];
+
+                    telemetriaRaw.forEach(punto => {
+                        if (punto.lat && punto.lng) {
+                            coordenadas.push({
+                                lat: punto.lat,
+                                lon: punto.lng,
+                                mode: punto.mode || 'UNKNOWN',
+                                alt: punto.alt || 0,
+                                ts: punto.ts || 0
+                            });
+                        }
+                    });
+
+                    // Extraer KPIs precalculados desde Supabase
+                    const distTotal = parseFloat(fila.total_km) || 0;
+                    const distEv = parseFloat(fila.ev_km) || 0;
+                    const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
+                    const iceDist = distTotal - distEv;
+                    // Usamos el dato real guardado en BD. Si no existe, usamos la media de la configuración
+                    const tripFuel = parseFloat(fila.fuel_liters) || (iceDist * (CONFIG.fuelRate / 100));
+
+                    // Guardamos el dato crudo por si cambiamos la configuración luego
+                    const fuelRealGuardado = parseFloat(fila.fuel_liters) || null;
+
+                    let tripDate = new Date(fila.created_at);
+                    if (isNaN(tripDate.getTime())) tripDate = new Date();
+
+                    accumulatedTrips.push({
+                        date: tripDate,
+                        dist: distTotal,
+                        distEv: distEv,
+                        ev: evPercent,
+                        fuel: tripFuel,
+                        fuelRealGuardado: fuelRealGuardado,
+                        coords: coordenadas
+                    });
+
+                } catch (error) {
+                    console.error(`Fallo crítico irrecuperable en la fila ${index + 2}:`, error);
+                }
+            });
+
+            // Ordenar por fecha
+            accumulatedTrips.sort((a, b) => a.date - b.date);
+
+            if (accumulatedTrips.length > 0) {
+                // Ocultar Dropzone y Mostrar Dashboard
+                document.getElementById('drop-zone').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'flex';
+
+                // Damos 300ms para que el Dashboard sea visible antes de calcular el mapa
+                setTimeout(() => {
+                    actualizarDashboard();
+
+                    // Forzamos al mapa a reconocer su nuevo tamaño
+                    if (mapInstance) {
+                        mapInstance.invalidateSize();
+                        // Si tenemos los límites guardados, los aplicamos
+                        if (window.lastGlobalBounds) {
+                            mapInstance.fitBounds(window.lastGlobalBounds, { padding: [30, 30] });
+                        }
+                    }
+
+                    window.dispatchEvent(new Event('resize'));
+                    if (typeof guardarResumenLocal === 'function') guardarResumenLocal(accumulatedTrips);
+                }, 300);
+            } else {
+                alert("No se pudo procesar ningún viaje válido. Revisa la consola.");
+            }
+        }
+
+        function actualizarMiniHUD(totalDist, avgEv, avgCons, numTrips, totalIcePercent, totalRegenPercent) {
+            const C = 2 * Math.PI * 45; 
+            
+            // Actualizar textos SOLO si los elementos existen en el HTML
+            const elEv = document.getElementById('mini-ev-val');
+            if (elEv) elEv.innerText = `${avgEv.toFixed(0)}%`;
+            
+            const elDist = document.getElementById('mini-total-dist');
+            if (elDist) elDist.innerText = totalDist.toFixed(1);
+            
+            const elCons = document.getElementById('mini-avg-cons');
+            if (elCons) elCons.innerText = avgCons.toFixed(1);
+            
+            const elTrips = document.getElementById('mini-total-trips');
+            if (elTrips) elTrips.innerText = numTrips;
+
+            // Actualizar Anillos SVG
+            const arcEv = document.getElementById('mini-arc-ev');
+            const arcIce = document.getElementById('mini-arc-ice');
+
+            if (arcEv) arcEv.setAttribute('stroke-dasharray', `${(avgEv / 100) * C} ${C}`);
+            if (arcIce) {
+                arcIce.setAttribute('stroke-dasharray', `${(totalIcePercent / 100) * C} ${C}`);
+                arcIce.style.transform = `rotate(${(avgEv / 100) * 360}deg)`;
+                arcIce.style.transformOrigin = 'center';
+            }
+            
+            // Nuevos datos secundarios bajo el anillo
+            const elIce = document.getElementById('mini-ice-val');
+            if (elIce) elIce.innerText = totalIcePercent.toFixed(1);
+
+            const elRegen = document.getElementById('mini-regen-val');
+            if (elRegen) elRegen.innerText = (totalRegenPercent || 0).toFixed(1);
+        }
+
+        function actualizarRecords(trips) {
+            if (trips.length === 0) return;
+
+            let maxDistTrip = trips[0];
+            let maxScoreTrip = trips[0];
+            let minConsumoTrip = trips[0];
+            let maxEvTrip = trips[0];
+
+            let totalCO2 = 0;
+            let totalAhorroEuros = 0;
+
+            trips.forEach((t, index) => {
+                t.globalIndex = index; // Guardamos su posición
+
+                if (t.dist > maxDistTrip.dist) maxDistTrip = t;
+                if ((t.individualScore || 0) > (maxScoreTrip.individualScore || 0)) maxScoreTrip = t;
+                // Min consumo: Filtramos viajes de más de 2km para que no gane un viaje de aparcar
+                if (t.dist > 2 && t.fuel < minConsumoTrip.fuel) minConsumoTrip = t;
+                if (t.ev > maxEvTrip.ev) maxEvTrip = t;
+
+                const co2Ahorrado = (t.dist * (7.5 / 100) * 2.3) - (t.fuel * 2.3);
+                totalCO2 += Math.max(0, co2Ahorrado);
+                totalAhorroEuros += Math.max(0, co2Ahorrado / 2.3 * CONFIG.fuelPrice); // Equiv en litros * precio
+            });
+
+            // Actualizamos la pantalla de inicio (Los datos que dejamos vacíos antes)
+            const elCo2 = document.getElementById('home-co2-saved');
+            if (elCo2) elCo2.innerText = `${totalCO2.toFixed(1)} kg`;
+            const elMoney = document.getElementById('home-money-saved');
+            if (elMoney) elMoney.innerText = `${totalAhorroEuros.toFixed(2)} €`;
+
+            // ARREGLO 1: Guardamos los récords SIN borrar el 'ultimo' viaje
+            if (!window.viajesRécord) window.viajesRécord = {};
+            window.viajesRécord['dist'] = maxDistTrip;
+            window.viajesRécord['score'] = maxScoreTrip;
+            window.viajesRécord['eco'] = minConsumoTrip;
+            window.viajesRécord['ev'] = maxEvTrip;
+
+            const records = [
+                { label: "Ruta más Larga", val: maxDistTrip.dist.toFixed(1) + " km", icon: "🛣️", id: 'dist' },
+                { label: "Récord Eficiencia", val: (maxScoreTrip.individualScore || 0) + " pts", icon: "💎", id: 'score' },
+                { label: "Mayor % EV", val: maxEvTrip.ev.toFixed(1) + " %", icon: "⚡", id: 'ev' },
+                { label: "Menor Consumo Absoluto", val: minConsumoTrip.fuel.toFixed(2) + " L", icon: "🍃", id: 'eco' }
+            ];
+
+            const recordsBody = document.getElementById('records-body');
+            if (recordsBody) {
+                // Le metemos un onclick a la fila entera
+                recordsBody.innerHTML = records.map(r => `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;" onclick="verDetalleViaje(window.viajesRécord['${r.id}'])">
+                        <td style="padding: 12px 0; color: #888; font-size: 0.8rem;">${r.icon} ${r.label}</td>
+                        <td style="padding: 12px 0; text-align: right; color: #fff; font-weight: 600;">${r.val} <span style="font-size: 0.6rem; color: var(--ev);">Ver ▸</span></td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function renderizarComparativaMensual(trips) {
+            const ahora = new Date();
+            const mesActual = ahora.getMonth();
+            const añoActual = ahora.getFullYear();
+
+            // Calcular mes pasado
+            let mesPasado = mesActual - 1;
+            let añoPasado = añoActual;
+            if (mesPasado < 0) { mesPasado = 11; añoPasado--; }
+
+            // Filtrar viajes
+            const tripsMesAct = trips.filter(t => t.date.getMonth() === mesActual && t.date.getFullYear() === añoActual);
+            const tripsMesAnt = trips.filter(t => t.date.getMonth() === mesPasado && t.date.getFullYear() === añoPasado);
+
+            if (tripsMesAnt.length === 0) {
+                document.getElementById('trend-list').innerHTML = `<p style="color:#666; font-size:0.8rem; text-align:center;">Esperando a completar el mes para generar comparativa...</p>`;
+                return;
+            }
+
+            // Cálculos Mes Actual
+            const distEvAct = tripsMesAct.reduce((acc, t) => acc + t.distEv, 0);
+            const totalDistAct = tripsMesAct.reduce((acc, t) => acc + t.dist, 0);
+            const consMedioAct = totalDistAct > 0 ? (tripsMesAct.reduce((acc, t) => acc + t.fuel, 0) * 100 / totalDistAct) : 0;
+
+            // Cálculos Mes Anterior
+            const distEvAnt = tripsMesAnt.reduce((acc, t) => acc + t.distEv, 0);
+            const totalDistAnt = tripsMesAnt.reduce((acc, t) => acc + t.dist, 0);
+            const consMedioAnt = totalDistAnt > 0 ? (tripsMesAnt.reduce((acc, t) => acc + t.fuel, 0) * 100 / totalDistAnt) : 0;
+
+            // Lógica de indicadores
+            const diffEv = distEvAct - distEvAnt;
+            const diffCons = consMedioAct - consMedioAnt;
+
+            const crearFila = (label, valAct, diff, unit, inversa = false) => {
+                // inversa = true significa que bajar es bueno (ej: consumo)
+                const esBueno = inversa ? diff <= 0 : diff >= 0;
+                const icono = diff >= 0 ? '▲' : '▼';
+                const clase = diff === 0 ? 'trend-neutral' : (esBueno ? 'trend-up' : 'trend-down');
+                const signo = diff > 0 ? '+' : '';
+
+                return `
+                    <div class="trend-row">
+                        <div class="trend-info">
+                            <span class="trend-label">${label}</span>
+                            <span class="trend-value">${valAct.toFixed(1)}${unit}</span>
+                        </div>
+                        <div class="trend-indicator">
+                            <div class="trend-badge ${clase}">
+                                ${icono} ${signo}${diff.toFixed(1)}${unit}
+                            </div>
+                            <span style="font-size:0.6rem; color:#555; margin-top:4px;">vs mes pasado</span>
+                        </div>
+                    </div>
+                `;
+            };
+
+            document.getElementById('trend-list').innerHTML = `
+                ${crearFila('Kilómetros en Modo EV', distEvAct, diffEv, ' km')}
+                ${crearFila('Consumo Medio Gasolina', consMedioAct, diffCons, ' L', true)}
+            `;
+        }
+
+        // --- ACTUALIZACIÓN DE MÉTRICAS GLOBALES ---
+        function actualizarDashboard() {
+            document.getElementById('motor-radiography').style.display = 'none';
+            const now = Date.now();
+            const periods = {
+                'day': 86400000, 'week': 86400000 * 7,
+                'month': 86400000 * 30, 'year': 86400000 * 365, 'all': Infinity
+            };
+
+            const filteredTrips = accumulatedTrips.filter(t => (now - t.date.getTime()) <= periods[currentPeriod]);
+
+            // 1. Calcular KPIs Globales
+            let totalDist = 0, totalFuel = 0, sumEv = 0, totalDistEv = 0;
+            filteredTrips.forEach(t => {
+                totalDist += t.dist;
+                totalDistEv += t.distEv;
+                totalFuel += t.fuel;
+                sumEv += t.ev;
+            });
+
+            // --- ACTUALIZACIÓN DE TEXTOS EN DASHBOARD (BLINDADA) ---
+            const elValDist = document.getElementById('val-dist');
+            if (elValDist) elValDist.innerText = totalDist.toFixed(2);
+
+            const elValEv = document.getElementById('val-ev');
+            if (elValEv) elValEv.innerText = (filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0).toFixed(1);
+
+            const elValEvKm = document.getElementById('val-ev-km');
+            if (elValEvKm) elValEvKm.innerText = totalDistEv.toFixed(1);
+
+            const elValCons = document.getElementById('val-cons');
+            if (elValCons) elValCons.innerText = (totalDist > 0 ? (totalFuel * 100) / totalDist : 0).toFixed(1);
+
+            const elValSocDiff = document.getElementById('val-soc-diff');
+            if (elValSocDiff) elValSocDiff.innerText = filteredTrips.length;
+
+            const elFileName = document.getElementById('file-name');
+            if (elFileName) elFileName.innerText = `${filteredTrips.length} rutas`;
+
+            // --- CÁLCULO PRECISO DE PORCENTAJES (EV, ICE, REGEN) ---
+            let ptEV = 0, ptICE = 0, ptRegen = 0;
+            filteredTrips.forEach(t => {
+                t.coords.forEach(c => {
+                    if (c.mode === 'ELECTRIC') ptEV++;
+                    else if (c.mode === 'REGEN') ptRegen++;
+                    else ptICE++; // HYBRID, THERMAL, ENGINE_BRAKE
+                });
+            });
+            
+            const totalPt = ptEV + ptICE + ptRegen;
+            const realIcePercent = totalPt > 0 ? (ptICE / totalPt) * 100 : 0;
+            const realRegenPercent = totalPt > 0 ? (ptRegen / totalPt) * 100 : 0;
+
+            // Actualizar Mini HUD
+            const avgEv = filteredTrips.length > 0 ? sumEv / filteredTrips.length : 0;
+            const avgCons = totalDist > 0 ? (totalFuel * 100) / totalDist : 0;
+            
+            // Llamamos a la función con el nuevo dato realRegenPercent
+            actualizarMiniHUD(totalDist, avgEv, avgCons, filteredTrips.length, realIcePercent, realRegenPercent);
+
+            // --- RENDERIZAR ÚLTIMO VIAJE ---
+            const lastTripContainer = document.getElementById('home-last-trip');
+            if (lastTripContainer && filteredTrips.length > 0) {
+                const ultimoViaje = filteredTrips[filteredTrips.length - 1];
+                window.viajesRécord['ultimo'] = ultimoViaje; // Lo guardamos para el clic
+
+                lastTripContainer.innerHTML = `
+                    <div class="trip-item" style="border-left: 4px solid var(--regen);" onclick="verDetalleViaje(window.viajesRécord['ultimo'])">
+                        <div class="trip-info-main">
+                            <span class="trip-dist">${ultimoViaje.dist.toFixed(1)} km</span>
+                            <span class="trip-date">${ultimoViaje.date.toLocaleDateString()} ${ultimoViaje.date.getHours()}:${ultimoViaje.date.getMinutes().toString().padStart(2, '0')}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #888;">Eficiencia EV: ${ultimoViaje.ev.toFixed(1)}% | Consumo: ${ultimoViaje.fuel.toFixed(2)}L</div>
+                        <div class="efficiency-bar-bg"><div class="efficiency-bar-fill" style="width: ${ultimoViaje.ev}%"></div></div>
+                    </div>
+                `;
+            }
+
+            // 2. Ejecutar "El Juez" (Agrupación de Rutas)
+            renderizarHistorial(filteredTrips);
+
+            dibujarMapaGlobal(filteredTrips);
+            dibujarGraficaGlobal(filteredTrips);
+            actualizarRecords(filteredTrips);
+            renderizarComparativaMensual(accumulatedTrips);
+        }
+
+        async function renderizarHistorial(trips) {
+            // Buscamos el nuevo contenedor móvil, si no existe usamos el general
+            const container = document.getElementById('mobile-rutas') || document.querySelector('.side-panel');
+            const oldList = document.querySelector('.trip-list');
+            if (oldList) oldList.remove();
+
+            const listDiv = document.createElement('div');
+            listDiv.className = 'trip-list';
+            listDiv.innerHTML = `<h3 style="color: #444; font-size: 0.8rem; margin: 20px 0 10px 0; border-top: 1px solid #222; padding-top: 15px;">RUTAS AGRUPADAS</h3>`;
+
+            const grupos = agruparViajes(trips);
+
+            // 1. Renderizado instantáneo de la UI
+            for (let i = 0; i < grupos.length; i++) {
+                const group = grupos[i];
+
+                // --- NUEVO: Calcular la media del grupo ---
+                const sumaScores = group.trips.reduce((acc, t) => acc + (t.individualScore || 0), 0);
+                const mediaScore = Math.round(sumaScores / group.trips.length);
+
+                // Definir color según la media
+                let colorScore = mediaScore > 70 ? 'var(--ev)' : (mediaScore > 40 ? 'var(--hybrid)' : 'var(--thermal)');
+
+                const groupEl = document.createElement('div');
+                groupEl.className = 'route-group';
+
+                const header = document.createElement('div');
+                header.className = 'route-header';
+                const headerId = `route-title-${i}`;
+                // Añadimos un badge con la media del score a la derecha
+                header.innerHTML = `
+                    <span id="${headerId}">📍 Calculando ruta... (${group.trips.length})</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="background: ${colorScore}33; color: ${colorScore}; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; border: 1px solid ${colorScore}66;">
+                            ${mediaScore} pts
+                        </span>
+                        <span>▼</span>
+                    </div>
+                `;
+                header.onclick = () => groupEl.classList.toggle('active');
+
+                const content = document.createElement('div');
+                content.className = 'route-content';
+
+                group.trips.slice().reverse().forEach(trip => {
+                    const item = document.createElement('div');
+                    item.className = 'trip-item';
+                    item.onclick = () => verDetalleViaje(trip);
+
+                    let badgesHtml = '';
+                    if (trip.badges && trip.badges.length > 0) {
+                        badgesHtml = `<div class="badge-container">` +
+                            trip.badges.map(b => `<span class="dynamic-badge" style="background: ${b.color}">${b.text}</span>`).join('') +
+                            `</div>`;
+                    }
+
+                    item.innerHTML = `
+                        <div class="trip-info-main">
+                            <span class="trip-dist">${trip.dist.toFixed(1)} km</span>
+                            <span class="trip-date">${trip.date.toLocaleDateString()} ${trip.date.getHours()}:${trip.date.getMinutes().toString().padStart(2, '0')}</span>
+                        </div>
+                        <div style="font-size: 0.7rem; color: #888;">Eficiencia EV: ${trip.ev.toFixed(1)}%</div>
+                        <div class="efficiency-bar-bg">
+                            <div class="efficiency-bar-fill" style="width: ${trip.ev}%"></div>
+                        </div>
+                        ${badgesHtml}
+                    `;
+                    content.appendChild(item);
+                });
+
+                groupEl.appendChild(header);
+                groupEl.appendChild(content);
+                listDiv.appendChild(groupEl);
+            }
+            container.appendChild(listDiv);
+
+            // 2. Ejecutar la cola inteligente de geocodificación
+            bautizarRutasOrdenadas(grupos);
+        }
+
+        // --- SISTEMA GEOESPACIAL PERSISTENTE ---
+
+        // Lee la caché del disco duro del navegador
+        function getCachedCity(lat, lon) {
+            const cache = JSON.parse(localStorage.getItem('kona_geo_cache') || '{}');
+            const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+            return cache[key];
+        }
+
+        // Guarda la nueva ubicación en el disco duro
+        function saveCityToCache(lat, lon, name) {
+            const cache = JSON.parse(localStorage.getItem('kona_geo_cache') || '{}');
+            const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+            cache[key] = name;
+            localStorage.setItem('kona_geo_cache', JSON.stringify(cache));
+        }
+
+        // Función de pausa (Promise-based sleep)
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        // Petición individual a OpenStreetMap con control de errores
+        async function fetchCiudadDeAPI(lat, lon) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+                if (res.status === 429) {
+                    console.warn("Límite de la API alcanzado. La app reintentará más tarde.");
+                    return null;
+                }
+                if (!res.ok) return "Zona Desconocida";
+
+                const data = await res.json();
+                const nombre = data.address.city || data.address.town || data.address.village || data.address.municipality || "Ruta Local";
+
+                saveCityToCache(lat, lon, nombre);
+                return nombre;
+            } catch (e) {
+                return "Zona Desconocida";
+            }
+        }
+
+        // --- COLA SECUENCIAL CON ACELERADOR ---
+        async function bautizarRutasOrdenadas(grupos) {
+            for (let i = 0; i < grupos.length; i++) {
+                const group = grupos[i];
+                const headerSpan = document.getElementById(`route-title-${i}`);
+                if (!headerSpan) continue;
+
+                // 1. Resolver Origen
+                let origen = getCachedCity(group.baseStart.lat, group.baseStart.lon);
+                if (!origen) {
+                    await sleep(1500);
+                    origen = await fetchCiudadDeAPI(group.baseStart.lat, group.baseStart.lon) || "Ubicación 1";
+                }
+
+                // 2. Resolver Destino
+                let destino = getCachedCity(group.baseEnd.lat, group.baseEnd.lon);
+                if (!destino) {
+                    await sleep(1500);
+                    destino = await fetchCiudadDeAPI(group.baseEnd.lat, group.baseEnd.lon) || "Ubicación 2";
+                }
+
+                const tituloFinal = origen === destino ? `Ruta por ${origen}` : `${origen} ➔ ${destino}`;
+                headerSpan.innerText = `📍 ${tituloFinal} (${group.trips.length} viajes)`;
+            }
+        }
+
+        function verDetalleViaje(trip) {
+            // 1. Limpiar Mapa y dibujar ruta de neón específica
+            if (mapInstance) {
+                mapInstance.off();
+                mapInstance.remove();
+                mapInstance = null;
+            }
+
+            // ARREGLO 2: BLINDAJE LEAFLET (Borrado forzoso de caché)
+            const mapCont = document.getElementById('map');
+            if (mapCont) mapCont._leaflet_id = null;
+
+            mapInstance = L.map('map').setView([trip.coords[0].lat, trip.coords[0].lon], 15);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
+
+            const colors = {
+                'ELECTRIC': '#00ff88', 'REGEN': '#a29bfe',
+                'THERMAL': '#ff4444', 'HYBRID': '#00d4ff'
+            };
+
+            const polylinePoints = [];
+            for (let i = 0; i < trip.coords.length - 1; i++) {
+                const p1 = trip.coords[i];
+                const p2 = trip.coords[i + 1];
+                const color = colors[p1.mode] || '#fff';
+
+                L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+                    color: color, weight: 5, opacity: 1
+                }).addTo(mapInstance);
+                polylinePoints.push([p1.lat, p1.lon]);
+            }
+
+            // 2. Actualizar Gráfica con el perfil de altitud del viaje
+            actualizarGraficaForense(trip);
+            renderizarRadiografia(trip);
+
+            // 3. Veredicto Topográfico y Score de Eficiencia
+            renderizarVeredictoTopografico(trip);
+            renderizarScoreYKpis(trip); // <--- NUEVA LLAMADA AQUÍ
+
+            // 4. Aislar en la Pantalla de Detalle (Móvil Premium)
+            if (window.innerWidth <= 768) {
+                const detailView = document.getElementById('trip-detail-view');
+                const detailContent = document.getElementById('detail-content');
+
+                // Movemos temporalmente los datos a la pantalla aislada
+                detailContent.appendChild(document.getElementById('map'));
+                detailContent.appendChild(document.getElementById('charts'));
+                detailContent.appendChild(document.getElementById('motor-radiography'));
+                detailContent.appendChild(document.getElementById('topo-verdict'));
+
+                // Aseguramos que el mapa tome la altura correcta
+                document.getElementById('map').style.height = '40vh';
+
+                // Deslizamos la pantalla hacia adentro
+                detailView.classList.add('active');
+
+                // Forzamos a Leaflet a recalcular y encuadrar tras la animación (350ms)
+                setTimeout(() => {
+                    if (mapInstance) {
+                        mapInstance.invalidateSize();
+                        if (polylinePoints.length > 0) {
+                            mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
+                        }
+                    }
+                }, 350);
+            } else {
+                // En escritorio, encuadramos inmediatamente
+                if (polylinePoints.length > 0) {
+                    mapInstance.fitBounds(L.polyline(polylinePoints).getBounds(), { padding: [40, 40] });
+                }
+            }
+        }
+
+        function actualizarGraficaForense(trip) {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const labels = [];
+            const altitudes = [];
+            const slopes = [];
+
+            let engineBrakeCount = 0;
+            let distAccumulated = 0;
+
+            for (let i = 0; i < trip.coords.length; i++) {
+                const c = trip.coords[i];
+
+                // Calcular distancia acumulada para el eje X
+                if (i > 0) {
+                    const prev = trip.coords[i - 1];
+                    distAccumulated += getDistanceFromLatLonInKm(prev.lat, prev.lon, c.lat, c.lon);
+
+                    // Cálculo real de Inclinación (Pendiente % = Desnivel / Distancia * 100)
+                    const elevationDiff = c.alt - prev.alt;
+                    const distMeters = getDistanceFromLatLonInKm(prev.lat, prev.lon, c.lat, c.lon) * 1000;
+                    let currentSlope = distMeters > 0 ? (elevationDiff / distMeters) * 100 : 0;
+
+                    // Suavizado forense para evitar picos irreales del GPS
+                    currentSlope = Math.max(-20, Math.min(20, currentSlope));
+                    slopes.push(currentSlope.toFixed(1));
+                } else {
+                    slopes.push(0);
+                }
+
+                labels.push(distAccumulated.toFixed(2) + ' km');
+                altitudes.push(c.alt);
+
+                // Detección de Freno Motor. Si tu app futura manda "ENGINE_BRAKE", lo contamos.
+                // Si no, lo inferimos: Descenso fuerte (< -4%) + Motor Térmico Encendido = Freno Motor
+                if (c.mode === 'ENGINE_BRAKE' || (c.mode === 'THERMAL' && slopes[i] < -4)) {
+                    engineBrakeCount++;
+                }
+            }
+
+            // Mostrar el dato de freno motor (puedes crear un div específico para esto luego, por ahora lo lanzamos por consola para validarlo)
+            console.log(`⏱️ Tiempo estimado en Freno Motor: ${engineBrakeCount} segundos (Afecta negativamente al consumo ICE)`);
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Altitud (m)',
+                            data: altitudes,
+                            borderColor: '#00d4ff',
+                            backgroundColor: 'rgba(0, 212, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Inclinación (%)',
+                            data: slopes,
+                            borderColor: '#ffaa00',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: { ticks: { color: '#888', maxTicksLimit: 10 } },
+                        y: { type: 'linear', display: true, position: 'left', grid: { color: '#222' }, title: { display: true, text: 'Elevación (m)', color: '#00d4ff' } },
+                        y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Inclinación (%)', color: '#ffaa00' } }
+                    }
+                }
+            });
+        }
+
+        function renderizarRadiografia(trip) {
+            const panel = document.getElementById('motor-radiography');
+            panel.style.display = 'grid';
+
+            let tiempos = {
+                electric: 0, // Incluye ELECTRIC y REGEN
+                hybrid: 0,   // Modo HYBRID o aceleración combinada
+                engineBrake: 0, // THERMAL en bajadas pronunciadas
+                stopped: 0   // Velocidad cercana a 0
+            };
+
+            let totalSeconds = 0;
+
+            for (let i = 1; i < trip.coords.length; i++) {
+                const prev = trip.coords[i - 1];
+                const curr = trip.coords[i];
+
+                // Si no hay timestamp válido, estimamos 1 segundo por punto (frecuencia típica del OBD)
+                let deltaSecs = (curr.ts && prev.ts) ? (curr.ts - prev.ts) / 1000 : 1;
+
+                // Evitar saltos de tiempo irreales si se perdió la conexión del GPS
+                if (deltaSecs > 60 || deltaSecs < 0) deltaSecs = 1;
+
+                totalSeconds += deltaSecs;
+
+                // Cálculos para determinar el estado
+                const distMeters = getDistanceFromLatLonInKm(prev.lat, prev.lon, curr.lat, curr.lon) * 1000;
+                const speedKmh = (distMeters / deltaSecs) * 3.6;
+                const elevationDiff = curr.alt - prev.alt;
+                const slope = distMeters > 0 ? (elevationDiff / distMeters) * 100 : 0;
+
+                // Clasificación de la telemetría
+                if (speedKmh < 3) {
+                    tiempos.stopped += deltaSecs;
+                } else if (curr.mode === 'ENGINE_BRAKE' || (curr.mode === 'THERMAL' && slope < -3.5)) {
+                    // Motor de combustión actuando como retención en bajada
+                    tiempos.engineBrake += deltaSecs;
+                } else if (curr.mode === 'ELECTRIC' || curr.mode === 'REGEN') {
+                    tiempos.electric += deltaSecs;
+                } else if (curr.mode === 'HYBRID' || curr.mode === 'THERMAL') {
+                    // Uso térmico activo (tracción)
+                    tiempos.hybrid += deltaSecs;
+                } else {
+                    // Por defecto, si hay movimiento pero no modo, sumamos a híbrido
+                    tiempos.hybrid += deltaSecs;
+                }
+            }
+
+            // Funciones de ayuda para formatear el tiempo
+            const formatTime = (secs) => {
+                const m = Math.floor(secs / 60);
+                const s = Math.floor(secs % 60);
+                return `${m}m ${s}s`;
+            };
+            const getPercent = (secs) => totalSeconds > 0 ? ((secs / totalSeconds) * 100).toFixed(1) : 0;
+
+            // Pintar los datos en el panel
+            panel.innerHTML = `
+                <div class="motor-stat" style="border-bottom: 3px solid var(--ev)">
+                    <div class="motor-stat-title">⚡ Modo Eléctrico</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.electric)}</div>
+                    <div class="motor-stat-percent" style="color: var(--ev)">${getPercent(tiempos.electric)}%</div>
+                </div>
+                <div class="motor-stat" style="border-bottom: 3px solid var(--hybrid)">
+                    <div class="motor-stat-title">⚙️ Tracción Híbrida</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.hybrid)}</div>
+                    <div class="motor-stat-percent" style="color: var(--hybrid)">${getPercent(tiempos.hybrid)}%</div>
+                </div>
+                <div class="motor-stat" style="border-bottom: 3px solid var(--thermal)">
+                    <div class="motor-stat-title">📉 Freno Motor (ICE)</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.engineBrake)}</div>
+                    <div class="motor-stat-percent" style="color: var(--thermal)">${getPercent(tiempos.engineBrake)}%</div>
+                </div>
+                <div class="motor-stat" style="border-bottom: 3px solid #666">
+                    <div class="motor-stat-title">🛑 Detenido / Semáforos</div>
+                    <div class="motor-stat-time">${formatTime(tiempos.stopped)}</div>
+                    <div class="motor-stat-percent" style="color: #888">${getPercent(tiempos.stopped)}%</div>
+                </div>
+            `;
+        }
+
+        function renderizarScoreYKpis(trip) {
+            const panel = document.getElementById('trip-score-card');
+            panel.style.display = 'block';
+
+            // 1. CÁLCULO DE COSTES Y CO2
+            const costeViaje = trip.fuel * CONFIG.fuelPrice;
+            const co2Emitido = trip.fuel * 2.3;
+            const litrosCocheEstandar = trip.dist * (7.5 / 100);
+            const co2CocheEstandar = litrosCocheEstandar * 2.3;
+            const ahorroCO2 = Math.max(0, co2CocheEstandar - co2Emitido);
+
+            // --- NUEVO: CÁLCULO DE VELOCIDAD MEDIA ---
+            // trip.coords.length es el número de segundos del viaje
+            const tiempoHoras = trip.coords.length / 3600;
+            const velocidadMedia = tiempoHoras > 0 ? (trip.dist / tiempoHoras) : 0;
+
+            // 2. EFFICIENCY SCORE (0-100) - CALIBRADO PARA HEV
+            let regenPoints = 0;
+            trip.coords.forEach(c => { if (c.mode === 'REGEN') regenPoints++; });
+            const regenPercent = trip.coords.length > 0 ? (regenPoints / trip.coords.length) * 100 : 0;
+
+            let score = Math.round((trip.ev * 1.4) + (regenPercent * 3.0));
+            score = Math.min(100, Math.max(0, score));
+
+            let scoreColor = "var(--ev)";
+            let scoreText = "Máxima Eficiencia HEV";
+            if (score < 40) { scoreColor = "var(--thermal)"; scoreText = "Alta Demanda Térmica"; }
+            else if (score < 65) { scoreColor = "var(--hybrid)"; scoreText = "Eficiencia en Autovía"; }
+
+            // 3. RENDERIZADO (Con cuadrícula 2x2 para encajar la velocidad)
+            panel.innerHTML = `
+                <div class="score-header">
+                    <div class="score-circle" style="background: conic-gradient(${scoreColor} 0% ${score}%, rgba(255,255,255,0.05) ${score}%); box-shadow: 0 0 20px ${scoreColor}40;">
+                        <span class="score-value" style="text-shadow: 0 0 10px ${scoreColor};">${score}</span>
+                    </div>
+                    <div class="score-title">
+                        <h4 style="color: ${scoreColor};">${scoreText}</h4>
+                        <p>Efficiency Score Global</p>
+                    </div>
+                </div>
+                <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <div class="kpi-item">
+                        <div class="kpi-val" style="color: #ffaa00;">${costeViaje.toFixed(2)}€</div>
+                        <div class="kpi-label">Coste Viaje</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-val" style="color: var(--ev);">-${ahorroCO2.toFixed(1)}<span style="font-size:0.7rem;">kg</span></div>
+                        <div class="kpi-label">CO₂ Ahorrado</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-val">${trip.fuel.toFixed(2)}<span style="font-size:0.7rem;">L</span></div>
+                        <div class="kpi-label">Combustible</div>
+                    </div>
+                    <div class="kpi-item">
+                        <div class="kpi-val" style="color: var(--regen);">${velocidadMedia.toFixed(0)}<span style="font-size:0.7rem;">km/h</span></div>
+                        <div class="kpi-label">Velocidad Media</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderizarVeredictoTopografico(trip) {
+            const panel = document.getElementById('topo-verdict');
+            if (trip.coords.length < 2) {
+                panel.style.display = 'none';
+                return;
+            }
+
+            panel.style.display = 'block';
+
+            let ascencionTotal = 0;
+            let descensoTotal = 0;
+            let altMaxima = -9999;
+            let altMinima = 9999;
+
+            let regenEnBajada = 0;
+            let iceEnSubida = 0;
+
+            for (let i = 1; i < trip.coords.length; i++) {
+                const prev = trip.coords[i - 1];
+                const curr = trip.coords[i];
+                const diff = curr.alt - prev.alt;
+
+                if (diff > 0) ascencionTotal += diff;
+                else descensoTotal += Math.abs(diff);
+
+                if (curr.alt > altMaxima) altMaxima = curr.alt;
+                if (curr.alt < altMinima) altMinima = curr.alt;
+
+                if (diff < -1 && curr.mode === 'REGEN') regenEnBajada++;
+                if (diff > 1 && (curr.mode === 'THERMAL' || curr.mode === 'HYBRID')) iceEnSubida++;
+            }
+
+            let veredicto = "";
+            let borderColor = "";
+            let icon = "";
+            const desnivelNeto = ascencionTotal - descensoTotal;
+
+            // --- FÍSICA APLICADA: Comparación real vs. Ruta Fantasma Plana ---
+            const litrosConsumidos = trip.fuel;
+            const litrosSiFuesePlano = trip.dist * (CONFIG.fuelRate / 100);
+            const diferenciaLitros = litrosConsumidos - litrosSiFuesePlano;
+            const costeDiferencia = diferenciaLitros * CONFIG.fuelPrice;
+
+            let veredictoTexto = "";
+            if (Math.abs(diferenciaLitros) < 0.05) {
+                veredictoTexto = "<strong>Eficiencia Neutra:</strong> El terreno no ha influido significativamente. Tu consumo ha sido el estándar para esta distancia.";
+            } else if (diferenciaLitros > 0) {
+                veredictoTexto = `<strong>Penalización por Elevación:</strong> La orografía te ha obligado a gastar <strong>+${diferenciaLitros.toFixed(2)}L</strong> extra (aprox. <strong>${costeDiferencia.toFixed(2)}€</strong>) comparado con un trayecto llano.`;
+            } else {
+                veredictoTexto = `<strong>Bonificación por Descenso:</strong> Has ahorrado <strong>${Math.abs(diferenciaLitros).toFixed(2)}L</strong> (aprox. <strong>${Math.abs(costeDiferencia).toFixed(2)}€</strong>) gracias a la energía recuperada en las bajadas.`;
+            }
+
+            if (ascencionTotal < 30 && descensoTotal < 30) {
+                icon = "🛣️";
+                borderColor = "var(--ev)";
+                veredicto = veredictoTexto || `<strong>Terreno Plano:</strong> Sin penalizaciones. El consumo depende exclusivamente de la presión sobre el acelerador.`;
+            } else if (desnivelNeto > 50) {
+                icon = "⛰️";
+                borderColor = "var(--thermal)";
+                veredicto = veredictoTexto;
+            } else if (desnivelNeto < -50) {
+                icon = "📉";
+                borderColor = "var(--regen)";
+                veredicto = veredictoTexto;
+            } else {
+                icon = "🎢";
+                borderColor = "var(--hybrid)";
+                veredicto = veredictoTexto;
+            }
+
+            panel.innerHTML = `
+                <div class="topo-header">
+                    <div class="topo-icon">${icon}</div>
+                    <div class="topo-title">Veredicto Topográfico</div>
+                </div>
+                <div class="topo-grid">
+                    <div class="topo-metric" style="border-left-color: var(--thermal)">
+                        <div class="topo-val">↑ ${Math.round(ascencionTotal)}<span style="font-size:0.8rem;color:#888;">m</span></div>
+                        <div class="topo-label">Desnivel Positivo</div>
+                    </div>
+                    <div class="topo-metric" style="border-left-color: var(--regen)">
+                        <div class="topo-val">↓ ${Math.round(descensoTotal)}<span style="font-size:0.8rem;color:#888;">m</span></div>
+                        <div class="topo-label">Desnivel Negativo</div>
+                    </div>
+                    <div class="topo-metric" style="border-left-color: var(--hybrid)">
+                        <div class="topo-val">${Math.round(altMaxima)}<span style="font-size:0.8rem;color:#888;">m</span></div>
+                        <div class="topo-label">Altitud Máxima</div>
+                    </div>
+                </div>
+                <div class="topo-ai-verdict" style="border-color: ${borderColor}">
+                    ${veredicto}
+                </div>
+            `;
+        }
+
+        // --- DIBUJAR MAPA DE CALOR GLOBAL ---
+        // --- DIBUJAR MAPA DE CALOR GLOBAL ---
+        let mapInstance = null;
+        function dibujarMapaGlobal(trips) {
+            if (trips.length === 0) return;
+
+            // ARREGLO 3: ACTUALIZAR TEXTOS DEL PANEL SIEMPRE (Aunque el mapa no se vea aún)
+            const totalEvKm = trips.reduce((acc, t) => acc + t.distEv, 0);
+
+            const countEl = document.getElementById('map-trips-count');
+            if (countEl) countEl.innerText = trips.length;
+
+            const evEl = document.getElementById('map-ev-total');
+            if (evEl) evEl.innerText = totalEvKm.toFixed(1) + ' km';
+
+            const routeTypeTag = document.getElementById('map-route-type');
+            if (routeTypeTag) {
+                if (trips.length > 5) {
+                    routeTypeTag.innerText = "ZONA HABITUAL";
+                    routeTypeTag.style.background = "var(--ev)";
+                } else {
+                    routeTypeTag.innerText = "ZONA ESPORÁDICA";
+                    routeTypeTag.style.background = "var(--regen)";
+                }
+            }
+
+            // --- CORTAFUEGOS DEL MAPA VISUAL ---
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer || mapContainer.offsetParent === null) {
+                window.tripsPendientesMapa = trips;
+                return; // Cortamos aquí para evitar el error del Canvas en pestañas ocultas
+            }
+
+            // Limpieza absoluta de Leaflet
+            if (mapInstance) {
+                mapInstance.off();
+                mapInstance.remove();
+                mapInstance = null;
+            }
+            mapContainer._leaflet_id = null;
+
+            mapInstance = L.map('map').setView([trips[0].coords[0].lat, trips[0].coords[0].lon], 14);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(mapInstance);
+
+            const heatPoints = [];
+            trips.forEach(trip => {
+                trip.coords.forEach(c => {
+                    heatPoints.push([c.lat, c.lon, 1]);
+                });
+            });
+
+            L.heatLayer(heatPoints, {
+                radius: 12, blur: 15, maxZoom: 15,
+                gradient: { 0.2: '#00d4ff', 0.5: '#00ff88', 0.8: '#ffaa00', 1.0: '#ff4444' }
+            }).addTo(mapInstance);
+
+            if (heatPoints.length > 0) {
+                const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
+                mapInstance.fitBounds(bounds, { padding: [30, 30] });
+                window.lastGlobalBounds = bounds;
+            }
+
+            window.tripsPendientesMapa = null; // Tarea completada con éxito
+        }
+
+        // --- LÓGICA DE AGRUPACIÓN E INSIGNIAS ---
+        function agruparViajes(trips) {
+            const rutasAgrupadas = [];
+
+            trips.forEach(trip => {
+                if (trip.coords.length === 0) return;
+
+                // --- NUEVO: Calcular score individual realista para HEV ---
+                let regenPoints = trip.coords.filter(c => c.mode === 'REGEN').length;
+                const regenPercent = trip.coords.length > 0 ? (regenPoints / trip.coords.length) * 100 : 0;
+
+                // Calibración Híbrido Autorrecargable: 
+                // Un 50% de uso EV da 70 puntos. Un 10% de regeneración da 30 puntos.
+                trip.individualScore = Math.round((trip.ev * 1.4) + (regenPercent * 3.0));
+                trip.individualScore = Math.min(100, Math.max(0, trip.individualScore));
+
+                const start = trip.coords[0];
+                const end = trip.coords[trip.coords.length - 1];
+                let matchedGroup = null;
+
+                // Buscar si existe un grupo con un origen y destino similar (radio ampliado a 4km)
+                for (let group of rutasAgrupadas) {
+                    const groupStart = group.baseStart;
+                    const groupEnd = group.baseEnd;
+
+                    // Distancias normales (Ida)
+                    const distStart = getDistanceFromLatLonInKm(start.lat, start.lon, groupStart.lat, groupStart.lon);
+                    const distEnd = getDistanceFromLatLonInKm(end.lat, end.lon, groupEnd.lat, groupEnd.lon);
+
+                    // Distancias cruzadas (Vuelta: El inicio de ahora es el final del grupo)
+                    const distStartReverse = getDistanceFromLatLonInKm(start.lat, start.lon, groupEnd.lat, groupEnd.lon);
+                    const distEndReverse = getDistanceFromLatLonInKm(end.lat, end.lon, groupStart.lat, groupStart.lon);
+
+                    // Si coincide origen y destino (Ida) O BIEN están invertidos (Vuelta)
+                    if ((distStart < 4 && distEnd < 4) || (distStartReverse < 4 && distEndReverse < 4)) {
+                        matchedGroup = group;
+                        break;
+                    }
+                }
+
+                if (matchedGroup) {
+                    matchedGroup.trips.push(trip);
+                } else {
+                    rutasAgrupadas.push({
+                        id: `Ruta_${rutasAgrupadas.length + 1}`,
+                        baseStart: start,
+                        baseEnd: end,
+                        trips: [trip]
+                    });
+                }
+            });
+
+            // Otorgar insignias dentro de cada grupo
+            rutasAgrupadas.forEach(group => {
+                if (group.trips.length > 1) {
+                    let maxEv = -1, minConsumo = 999, maxRegen = -1;
+
+                    group.trips.forEach(t => {
+                        if (t.ev > maxEv) maxEv = t.ev;
+                        if (t.fuel < minConsumo) minConsumo = t.fuel;
+
+                        // Calcular tiempo de regeneración contando los puntos 'REGEN'
+                        const regenPoints = t.coords.filter(c => c.mode === 'REGEN').length;
+                        if (regenPoints > maxRegen) maxRegen = regenPoints;
+                        t.regenScore = regenPoints;
+                    });
+
+                    group.trips.forEach(t => {
+                        t.badges = [];
+                        if (t.ev === maxEv) t.badges.push({ text: '🥇 EV KING', color: 'var(--ev)' });
+                        if (t.fuel === minConsumo) t.badges.push({ text: '⛽ ECO-MILLER', color: 'var(--hybrid)' });
+                        if (t.regenScore === maxRegen) t.badges.push({ text: '🔋 REGEN MASTER', color: 'var(--regen)' });
+                    });
+                }
+            });
+
+            return rutasAgrupadas;
+        }
+
+        // --- CÁLCULOS MATEMÁTICOS ---
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            const R = 6371; const dLat = (lat2 - lat1) * (Math.PI / 180); const dLon = (lon2 - lon1) * (Math.PI / 180);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // --- GRÁFICA MULTI-EJE HISTÓRICA ---
+        let chartInstance = null;
+        function dibujarGraficaGlobal(trips) {
+            const ctx = document.getElementById('telemetryChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+
+            const agrupacion = {};
+
+            trips.forEach(t => {
+                const fecha = new Date(t.date);
+                let label = "";
+
+                // Eje X Dinámico según la pestaña seleccionada
+                if (currentPeriod === 'day') {
+                    label = `${fecha.getHours()}:00`; // Agrupar por hora
+                } else if (currentPeriod === 'week' || currentPeriod === 'month') {
+                    label = fecha.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }); // Agrupar por día
+                } else {
+                    // Año o Todo: Agrupar por Mes
+                    label = fecha.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+                }
+
+                if (!agrupacion[label]) {
+                    agrupacion[label] = { ev: 0, ice: 0, scoreTotal: 0, count: 0 };
+                }
+
+                agrupacion[label].ev += t.distEv;
+                agrupacion[label].ice += (t.dist - t.distEv);
+                agrupacion[label].scoreTotal += (t.individualScore || 0);
+                agrupacion[label].count++;
+            });
+
+            const labels = Object.keys(agrupacion);
+            const dataEV = labels.map(l => agrupacion[l].ev.toFixed(1));
+            const dataICE = labels.map(l => agrupacion[l].ice.toFixed(1));
+            const dataScore = labels.map(l => (agrupacion[l].scoreTotal / agrupacion[l].count).toFixed(0));
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Km Eléctrico', data: dataEV, backgroundColor: '#00ffaa', stack: 'Stack 0', order: 2 },
+                        { label: 'Km Gasolina', data: dataICE, backgroundColor: '#9b5de5', stack: 'Stack 0', order: 2 },
+                        { label: 'Eficiencia Media', type: 'line', data: dataScore, borderColor: '#ffffff', borderWidth: 3, pointBackgroundColor: '#ffffff', yAxisID: 'y1', tension: 0.4, order: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, ticks: { color: '#888', font: { family: 'Space Grotesk' } } },
+                        y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y1: { type: 'linear', position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false } }
+                    }
+                }
+            });
+        }
+        // --- CONEXIÓN A LA NUBE (SUPABASE) ---
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jdttfzixffasuorvqklv.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpkdHRmeml4ZmZhc3VvcnZxa2x2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDA5ODAsImV4cCI6MjA5MDE3Njk4MH0.Wrwc7bbW1vhEvXebHAroH6_Lpf93f6egBN5SSr6cmmk';
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+
+        // SOLO ACTIVAR EL BOTÓN QUE EXISTE REALMENTE
+        const btnMainSync = document.getElementById('btn-sync-cloud-main');
+        if (btnMainSync) {
+            btnMainSync.addEventListener('click', descargarDatosNube);
+        }
+
+        async function descargarDatosNube(event) {
+            // Identificamos qué botón pulsaste para ponerle el icono de carga
+            const btnSplash = document.getElementById('btn-sync-splash');
+            const btnMain = document.getElementById('btn-sync-cloud-main');
+            if (btnSplash) btnSplash.innerHTML = '⏳ CONECTANDO...';
+            if (btnMain) btnMain.innerHTML = '⏳ Descargando...';
+
+            try {
+                // ⚠️ ¡IMPORTANTE! Si tu tabla NO se llama 'trips', cámbialo aquí abajo:
+                const nombreTabla = 'trips';
+
+                const { data, error, status } = await supabaseClient
+                    .from(nombreTabla)
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(150);
+
+                // Si Supabase nos escupe un error, lo atrapamos
+                if (error) {
+                    throw new Error(`Código ${status}: ${error.message}`);
+                }
+
+                // Si hay datos, encendemos el Dashboard
+                if (data && data.length > 0) {
+                    procesarDatosNube(data);
+                } else {
+                    // Si conecta bien pero no devuelve datos, es culpa del RLS
+                    alert(`✅ Conexión exitosa a Supabase.\n\n❌ ERROR: La tabla '${nombreTabla}' está vacía o el escudo de seguridad (RLS) está activado y bloquea la lectura.`);
+                }
+            } catch (error) {
+                // Mostramos el error exacto en pantalla
+                const msj = error.message || "Error desconocido";
+                console.error("DIAGNÓSTICO:", msj);
+                alert(`🚨 RECHAZO DE SUPABASE:\n\n${msj}\n\nRevisa si el nombre de la tabla es correcto.`);
+            } finally {
+                // Devolvemos los botones a su estado original
+                if (btnSplash) btnSplash.innerHTML = '[ INICIAR ENLACE SATELITAL ]';
+                if (btnMain) btnMain.innerHTML = '☁️ SINCRONIZAR CON LA NUBE';
+            }
+        }
+
+        function procesarDatosNube(filas) {
+            if (!filas || filas.length === 0) return;
+
+            accumulatedTrips = []; // Limpiamos para cargar lo de la nube
+
+            filas.forEach((fila, index) => {
+                if (!fila.route_data) return;
+
+                try {
+                    // Magia de Supabase: Si es jsonb en BD, ya es un objeto. Si es texto, lo parseamos.
+                    const telemetriaRaw = typeof fila.route_data === 'string' ? JSON.parse(fila.route_data) : fila.route_data;
+                    const coordenadas = [];
+
+                    telemetriaRaw.forEach(punto => {
+                        if (punto.lat && punto.lng) {
+                            coordenadas.push({
+                                lat: punto.lat,
+                                lon: punto.lng,
+                                mode: punto.mode || 'UNKNOWN',
+                                alt: punto.alt || 0,
+                                ts: punto.ts || 0 // Mantenemos el soporte para la radiografía del motor
+                            });
+                        }
+                    });
+
+                    // Extraer KPIs (asegurándonos de convertir a número)
+                    const distTotal = parseFloat(fila.total_km) || 0;
+                    const distEv = parseFloat(fila.ev_km) || 0;
+                    const evPercent = distTotal > 0 ? (distEv / distTotal) * 100 : 0;
+                    const iceDist = distTotal - distEv;
+                    // NUEVA LÍNEA: Prioridad máxima a los litros reales guardados
+                    const tripFuel = parseFloat(fila.fuel_liters) || (iceDist * (5.5 / 100));
+
+                    let tripDate = new Date(fila.created_at);
+                    if (isNaN(tripDate.getTime())) tripDate = new Date();
+
+                    accumulatedTrips.push({
+                        date: tripDate,
+                        dist: distTotal,
+                        distEv: distEv,
+                        ev: evPercent,
+                        fuel: tripFuel,
+                        coords: coordenadas
+                    });
+
+                } catch (error) {
+                    console.error(`Fallo al procesar el viaje de la nube con ID ${fila.id}:`, error);
+                }
+            });
+
+            // Ordenar por fecha del más antiguo al más nuevo para las gráficas
+            accumulatedTrips.sort((a, b) => a.date - b.date);
+
+            // Ocultar Dropzone y Mostrar Dashboard
+            document.getElementById('drop-zone').style.display = 'none';
+            document.getElementById('dashboard').style.display = 'flex';
+
+            // Forzamos al navegador a calcular las alturas reales AHORA (reflow)
+            document.getElementById('dashboard').offsetHeight;
+
+            // 250ms de margen para que la pantalla se asiente antes de pintar
+            setTimeout(() => {
+                actualizarDashboard();
+                window.dispatchEvent(new Event('resize'));
+                guardarResumenLocal(accumulatedTrips);
+            }, 250);
+        }
+        // --- LÓGICA DEL SPLASH SCREEN Y MEMORIA ---
+        function guardarResumenLocal(trips) {
+            let totalEV = 0, totalICE = 0, totalRegen = 0;
+            let totalDist = 0, totalFuel = 0; // NUEVO: Acumuladores de consumo
+
+            trips.forEach(t => {
+                totalDist += t.dist;
+                totalFuel += t.fuel;
+
+                // Contamos los puntos de cada modo para sacar un porcentaje global simple
+                t.coords.forEach(c => {
+                    if (c.mode === 'ELECTRIC') totalEV++;
+                    else if (c.mode === 'REGEN') totalRegen++;
+                    else totalICE++; // HYBRID, THERMAL o ENGINE_BRAKE
+                });
+            });
+
+            // NUEVO: Calcular la media global
+            const avgCons = totalDist > 0 ? (totalFuel * 100) / totalDist : 0;
+            const total = totalEV + totalICE + totalRegen;
+
+            if (total > 0) {
+                const resumen = {
+                    ev: Math.round((totalEV / total) * 100),
+                    ice: Math.round((totalICE / total) * 100),
+                    regen: Math.round((totalRegen / total) * 100),
+                    totalSecs: total,
+                    avgCons: avgCons.toFixed(1) // Guardamos el dato
+                };
+                localStorage.setItem('kona_last_summary', JSON.stringify(resumen));
+                actualizarPantallaSplash(resumen);
+            }
+        }
+
+        function actualizarPantallaSplash(resumen) {
+            if (!resumen) return;
+            const C = 2 * Math.PI * 88; // SVG circumference ≈ 553
+
+            // Text values
+            document.getElementById('splash-ev-val').innerText = resumen.ev;
+            document.getElementById('leg-ev').innerText = `${resumen.ev}%`;
+            document.getElementById('leg-ice').innerText = `${resumen.ice}%`;
+            document.getElementById('leg-regen').innerText = `${resumen.regen}%`;
+
+            // NUEVO: Pinta el consumo o muestra rayitas si no hay
+            const legFuel = document.getElementById('leg-fuel');
+            if (legFuel) {
+                legFuel.innerText = resumen.avgCons ? `${resumen.avgCons} L/100km` : '-- L/100km';
+            }
+
+            // Time display
+            const horas = Math.floor((resumen.totalSecs || 3438) / 3600);
+            const mins = Math.floor(((resumen.totalSecs || 3438) % 3600) / 60);
+            const secs = (resumen.totalSecs || 3438) % 60;
+            document.getElementById('splash-time-val').innerText =
+                `${horas}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            // --- SVG arc update ---
+            // Each arc starts where the previous ends; we stack them on the circumference.
+            // stroke-dashoffset=-138 rotates the start to the top (12 o'clock).
+            const evLen = (resumen.ev / 100) * C;
+            const regenLen = (resumen.regen / 100) * C;
+            const thermalLen = (resumen.ice / 100) * C;
+            const gap = 4; // small gap between segments
+
+            const arcEv = document.getElementById('arc-ev');
+            const arcRegen = document.getElementById('arc-regen');
+            const arcThermal = document.getElementById('arc-thermal');
+
+            if (arcEv) {
+                arcEv.setAttribute('stroke-dasharray', `${Math.max(0, evLen - gap)} ${C - Math.max(0, evLen - gap)}`);
+                arcEv.setAttribute('stroke-dashoffset', '138');
+            }
+            if (arcRegen) {
+                const regenOffset = 138 - evLen;
+                arcRegen.setAttribute('stroke-dasharray', `${Math.max(0, regenLen - gap)} ${C - Math.max(0, regenLen - gap)}`);
+                arcRegen.setAttribute('stroke-dashoffset', regenOffset.toString());
+            }
+            if (arcThermal) {
+                const thermalOffset = 138 - evLen - regenLen;
+                arcThermal.setAttribute('stroke-dasharray', `${Math.max(0, thermalLen - gap)} ${C - Math.max(0, thermalLen - gap)}`);
+                arcThermal.setAttribute('stroke-dashoffset', thermalOffset.toString());
+            }
+        }
+
+        // --- HUD INITIALIZATION ---
+        function initHUD() {
+            // Build tick marks for Layer 3
+            const majorGroup = document.getElementById('hud-ticks');
+            const minorGroup = document.getElementById('hud-ticks-minor');
+            if (majorGroup && minorGroup) {
+                const cx = 110, cy = 110, r = 104;
+                for (let deg = 0; deg < 360; deg += 10) {
+                    const rad = (deg - 90) * Math.PI / 180;
+                    const isMajor = deg % 30 === 0;
+                    const inner = r - (isMajor ? 8 : 4);
+                    const x1 = cx + r * Math.cos(rad);
+                    const y1 = cy + r * Math.sin(rad);
+                    const x2 = cx + inner * Math.cos(rad);
+                    const y2 = cy + inner * Math.sin(rad);
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+                    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                    (isMajor ? majorGroup : minorGroup).appendChild(line);
+                }
+            }
+
+            // Orbital particles (Layer 5)
+            const canvas = document.getElementById('hud-particles');
+            if (!canvas) return;
+            const container = canvas.parentElement;
+            const resize = () => {
+                canvas.width = container.offsetWidth;
+                canvas.height = container.offsetHeight;
+            };
+            resize();
+            window.addEventListener('resize', resize);
+
+            const ctx2 = canvas.getContext('2d');
+            const particles = Array.from({ length: 6 }, (_, i) => ({
+                angle: (i / 6) * Math.PI * 2,
+                radius: (0.3 + Math.random() * 0.18),   // fraction of container
+                speed: (0.00012 + Math.random() * 0.00008) * (Math.random() > 0.5 ? 1 : -1),
+                size: 1.2 + Math.random() * 1.4,
+                alpha: 0.3 + Math.random() * 0.4,
+                color: i % 3 === 0 ? '0,255,160' : i % 3 === 1 ? '0,212,255' : '155,93,229'
+            }));
+
+            let rafId;
+            function drawParticles(ts) {
+                const w = canvas.width, h = canvas.height;
+                ctx2.clearRect(0, 0, w, h);
+                const cx2 = w / 2, cy2 = h / 2;
+                particles.forEach(p => {
+                    p.angle += p.speed;
+                    const r2 = Math.min(w, h) * p.radius;
+                    const x2 = cx2 + Math.cos(p.angle) * r2;
+                    const y2 = cy2 + Math.sin(p.angle) * r2;
+                    // soft glow
+                    const grad = ctx2.createRadialGradient(x2, y2, 0, x2, y2, p.size * 4);
+                    grad.addColorStop(0, `rgba(${p.color},${p.alpha})`);
+                    grad.addColorStop(0.4, `rgba(${p.color},${p.alpha * 0.3})`);
+                    grad.addColorStop(1, `rgba(${p.color},0)`);
+                    ctx2.beginPath();
+                    ctx2.arc(x2, y2, p.size * 4, 0, Math.PI * 2);
+                    ctx2.fillStyle = grad;
+                    ctx2.fill();
+                    // core dot
+                    ctx2.beginPath();
+                    ctx2.arc(x2, y2, p.size, 0, Math.PI * 2);
+                    ctx2.fillStyle = `rgba(${p.color},${p.alpha})`;
+                    ctx2.fill();
+                });
+                rafId = requestAnimationFrame(drawParticles);
+            }
+            rafId = requestAnimationFrame(drawParticles);
+        }
+
+        // Al cargar la página, recuperar la memoria
+        window.addEventListener('DOMContentLoaded', () => {
+            initHUD();
+            const memoria = localStorage.getItem('kona_last_summary');
+            if (memoria) actualizarPantallaSplash(JSON.parse(memoria));
+            // NUEVO: Añadimos avgCons a la plantilla por defecto
+            else actualizarPantallaSplash({ ev: 65, ice: 30, regen: 5, totalSecs: 3438, avgCons: "5.5" });
+        });
+
+        // El botón del Splash inicia la sincronización y luego oculta la pantalla
+        document.getElementById('btn-sync-splash').addEventListener('click', async () => {
+            await descargarDatosNube();
+            document.getElementById('splash-screen').style.opacity = '0';
+            setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 500);
+        });
+
+        // --- LÓGICA DE NAVEGACIÓN BOTTOM BAR ---
+        const appContainer = document.getElementById('app-container');
+        const navItems = document.querySelectorAll('.nav-item');
+
+        const views = {
+            'nav-inicio': 'show-inicio',
+            'nav-rutas': 'show-rutas',
+            'nav-mapa': 'show-mapa',
+            'nav-stats': 'show-stats'
+        };
+
+        navItems.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                // Si estamos en móvil (ancho <= 768px)
+                if (window.innerWidth <= 768) {
+                    // 1. Quitar activo de todos los botones
+                    navItems.forEach(b => b.classList.remove('active'));
+                    // 2. Poner activo al pulsado
+                    const targetBtn = e.currentTarget;
+                    targetBtn.classList.add('active');
+                    // 3. Cambiar la clase del contenedor para mostrar la vista correcta
+                    appContainer.className = `grid-layout ${views[targetBtn.id]}`;
+
+                    // 4. ARREGLO DEL MAPA FANTASMA Y ERROR DE CANVAS
+                    if (targetBtn.id === 'nav-mapa') {
+                        setTimeout(() => {
+                            // Si teníamos un mapa pendiente de dibujar porque estaba oculto, lo dibujamos ahora
+                            if (window.tripsPendientesMapa) {
+                                dibujarMapaGlobal(window.tripsPendientesMapa);
+                            }
+
+                            if (mapInstance) {
+                                mapInstance.invalidateSize(); // Fuerza al mapa a medir la pantalla real
+                                if (window.lastGlobalBounds) {
+                                    mapInstance.fitBounds(window.lastGlobalBounds, { padding: [30, 30] });
+                                }
+                            }
+                        }, 150); // Le damos 150ms a la pantalla para que termine de abrirse
+                    }
+                }
+            });
+        });
+
+        // --- CERRAR DETALLE DE VIAJE ---
+        const btnCloseDetail = document.getElementById('btn-close-detail');
+        if (btnCloseDetail) {
+            btnCloseDetail.addEventListener('click', () => {
+                const detailView = document.getElementById('trip-detail-view');
+                detailView.classList.remove('active'); // Oculta la pantalla
+
+                // Devolver los elementos a su sitio original tras la animación
+                setTimeout(() => {
+                    const mapaContainer = document.getElementById('mobile-mapa');
+                    const statsContainer = document.getElementById('mobile-stats');
+
+                    if (mapaContainer) {
+                        mapaContainer.appendChild(document.getElementById('map'));
+                    }
+                    if (statsContainer) {
+                        statsContainer.appendChild(document.getElementById('charts'));
+                        // METER ESTOS DOS EN LA PESTAÑA STATS, NO EN MAIN-PANEL
+                        statsContainer.appendChild(document.getElementById('motor-radiography'));
+                        statsContainer.appendChild(document.getElementById('topo-verdict'));
+                    }
+
+                    // Volvemos automáticamente a la pestaña de rutas
+                    document.getElementById('nav-rutas').click();
+                }, 300);
+            });
+        }
+
+        // --- SISTEMA DE CONFIGURACIÓN DEL VEHÍCULO ---
+        let CONFIG = { fuelRate: 5.5, fuelPrice: 1.65 };
+
+        function cargarConfiguracion() {
+            const guardado = localStorage.getItem('kona_config');
+            if (guardado) { CONFIG = JSON.parse(guardado); }
+        }
+        cargarConfiguracion();
+
+        // Usar una función segura para abrir los ajustes
+        const btnSettings = document.getElementById('btn-open-settings');
+        if (btnSettings) {
+            btnSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.getElementById('input-fuel-rate').value = CONFIG.fuelRate;
+                    document.getElementById('input-fuel-price').value = CONFIG.fuelPrice;
+                    setTimeout(() => modal.style.opacity = '1', 10);
+                }
+            };
+        }
+
+        document.getElementById('btn-sync-header').addEventListener('click', descargarDatosNube);
+
+        const btnSaveSettings = document.getElementById('btn-save-settings');
+        if (btnSaveSettings) {
+            btnSaveSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                CONFIG.fuelRate = parseFloat(document.getElementById('input-fuel-rate').value) || 5.5;
+                CONFIG.fuelPrice = parseFloat(document.getElementById('input-fuel-price').value) || 1.65;
+                localStorage.setItem('kona_config', JSON.stringify(CONFIG));
+                if (modal) {
+                    modal.style.opacity = '0';
+                    setTimeout(() => modal.style.display = 'none', 300);
+                }
+                actualizarDashboard();
+            };
+        }
+
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        if (btnCloseSettings) {
+            btnCloseSettings.onclick = () => {
+                const modal = document.getElementById('settings-modal');
+                if (modal) {
+                    modal.style.opacity = '0';
+                    setTimeout(() => modal.style.display = 'none', 300);
+                }
+            };
+        }
+    </script>
+</body>
+
+</html>
