@@ -3313,7 +3313,29 @@
 
                 // Si hay datos, encendemos el Dashboard
                 if (data && data.length > 0) {
-                    procesarDatosNube(data);
+                    // Los viajes grabados con la app nativa Android no rellenan 'route_data':
+                    // guardan las coordenadas en la tabla 'trip_points' aparte. Las traemos
+                    // aquí para esos viajes, así no se descartan del dashboard.
+                    const idsSinRouteData = data.filter(f => !f.route_data).map(f => f.id);
+                    let puntosPorViaje = {};
+
+                    if (idsSinRouteData.length > 0) {
+                        const { data: puntos, error: errorPuntos } = await supabaseClient
+                            .from('trip_points')
+                            .select('trip_id, lat, lng, alt, mode, ts')
+                            .in('trip_id', idsSinRouteData);
+
+                        if (errorPuntos) {
+                            console.error('No se pudieron cargar trip_points:', errorPuntos.message);
+                        } else if (puntos) {
+                            puntos.forEach(p => {
+                                if (!puntosPorViaje[p.trip_id]) puntosPorViaje[p.trip_id] = [];
+                                puntosPorViaje[p.trip_id].push(p);
+                            });
+                        }
+                    }
+
+                    procesarDatosNube(data, puntosPorViaje);
                 } else {
                     // Si conecta bien pero no devuelve datos, es culpa del RLS
                     alert(`✅ Conexión exitosa a Supabase.\n\n❌ ERROR: La tabla '${nombreTabla}' está vacía o el escudo de seguridad (RLS) está activado y bloquea la lectura.`);
@@ -3330,17 +3352,23 @@
             }
         }
 
-        function procesarDatosNube(filas) {
+        function procesarDatosNube(filas, puntosPorViaje = {}) {
             if (!filas || filas.length === 0) return;
 
             accumulatedTrips = []; // Limpiamos para cargar lo de la nube
 
             filas.forEach((fila, index) => {
-                if (!fila.route_data) return;
+                const tienePuntosNativos = !fila.route_data && puntosPorViaje[fila.id]?.length > 0;
+
+                if (!fila.route_data && !tienePuntosNativos) return;
 
                 try {
                     // Magia de Supabase: Si es jsonb en BD, ya es un objeto. Si es texto, lo parseamos.
-                    const telemetriaRaw = typeof fila.route_data === 'string' ? JSON.parse(fila.route_data) : fila.route_data;
+                    // Si no hay route_data (viaje grabado con la app nativa Android), usamos los
+                    // puntos ya cargados desde la tabla trip_points en su lugar.
+                    const telemetriaRaw = tienePuntosNativos
+                        ? puntosPorViaje[fila.id]
+                        : (typeof fila.route_data === 'string' ? JSON.parse(fila.route_data) : fila.route_data);
                     const coordenadas = [];
 
                     telemetriaRaw.forEach(punto => {
